@@ -40,6 +40,8 @@ export interface AccuracyData {
   matrices: ConfusionMatrix[];
   /** Optional row-index → ticket subject, to label disagreements. */
   subjects?: Record<number, string>;
+  /** Optional row-index → ticket id, so a disagreement can deep-link into the console. */
+  ticketIds?: Record<number, number>;
 }
 
 function norm(value: unknown): string {

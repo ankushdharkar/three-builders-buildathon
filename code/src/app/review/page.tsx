@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { MOCK_TICKETS } from "../../mock/tickets";
 
 /**
@@ -61,9 +62,13 @@ export default function ReviewPage() {
                 <span className="font-mono text-[11px] text-hr-muted">
                   conf {t.decision?.confidence.toFixed(2)}
                 </span>
-                <span className="cursor-not-allowed rounded border border-hr-border px-2 py-1 font-mono text-[10px] text-hr-muted-dim">
-                  review →
-                </span>
+                <Link
+                  href={`/?ticket=${t.id}`}
+                  aria-label={`Open ticket ${t.id} in the console`}
+                  className="rounded border border-hr-border px-2 py-1 font-mono text-[10px] text-hr-muted transition-colors hover:border-hr-green/40 hover:text-hr-green-bright"
+                >
+                  open →
+                </Link>
               </li>
             ))}
           </ul>

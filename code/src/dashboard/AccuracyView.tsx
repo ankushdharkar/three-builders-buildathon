@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import type { AccuracyData, ConfusionMatrix } from "./confusion";
 import type { Disagreement } from "../cli/eval";
 
@@ -12,8 +12,7 @@ import type { Disagreement } from "../cli/eval";
  * the AI Judge looks for. Pure presentation over a precomputed `AccuracyData`.
  */
 export function AccuracyView({ data }: { data: AccuracyData }) {
-  const { report, matrices, subjects } = data;
-  const [selected, setSelected] = useState<number | null>(null);
+  const { report, matrices, subjects, ticketIds } = data;
 
   return (
     <div data-testid="accuracy-view" className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
@@ -74,13 +73,12 @@ export function AccuracyView({ data }: { data: AccuracyData }) {
           </p>
         ) : (
           <ul data-testid="disagreements" className="space-y-1.5">
-            {report.disagreements.map((d, i) => (
+            {report.disagreements.map((d) => (
               <DisagreementRow
                 key={`${d.index}-${d.column}`}
                 row={d}
                 subject={subjects?.[d.index]}
-                selected={selected === i}
-                onSelect={() => setSelected((s) => (s === i ? null : i))}
+                ticketId={ticketIds?.[d.index]}
               />
             ))}
           </ul>
@@ -189,35 +187,44 @@ function abbr(s: string): string {
 function DisagreementRow({
   row,
   subject,
-  selected,
-  onSelect,
+  ticketId,
 }: {
   row: Disagreement;
   subject?: string;
-  selected: boolean;
-  onSelect: () => void;
+  ticketId?: number;
 }) {
+  const inner = (
+    <>
+      <span className="text-hr-muted-dim">row {row.index}</span>
+      <span className="rounded bg-hr-slate/30 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-hr-muted">
+        {row.column}
+      </span>
+      {subject && <span className="truncate text-foreground/70">{subject}</span>}
+      <span className="ml-auto flex items-center gap-2 whitespace-nowrap">
+        <span className="text-hr-green-bright">{row.expected || "∅"}</span>
+        <span className="text-hr-muted-dim">→</span>
+        <span className="text-hr-amber">{row.predicted || "∅"}</span>
+        {ticketId != null && <span className="text-hr-muted-dim">↗</span>}
+      </span>
+    </>
+  );
+
+  const cls =
+    "flex w-full items-center gap-3 rounded-lg border border-hr-border px-3 py-2.5 text-left font-mono text-[12px] transition-colors";
+
   return (
     <li>
-      <button
-        type="button"
-        aria-pressed={selected}
-        onClick={onSelect}
-        className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left font-mono text-[12px] transition-colors ${
-          selected ? "border-hr-green/40 bg-hr-green/[0.06]" : "border-hr-border hover:border-hr-border-bright"
-        }`}
-      >
-        <span className="text-hr-muted-dim">row {row.index}</span>
-        <span className="rounded bg-hr-slate/30 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-hr-muted">
-          {row.column}
-        </span>
-        {subject && <span className="truncate text-foreground/70">{subject}</span>}
-        <span className="ml-auto flex items-center gap-2 whitespace-nowrap">
-          <span className="text-hr-green-bright">{row.expected || "∅"}</span>
-          <span className="text-hr-muted-dim">→</span>
-          <span className="text-hr-amber">{row.predicted || "∅"}</span>
-        </span>
-      </button>
+      {ticketId != null ? (
+        <Link
+          href={`/?ticket=${ticketId}`}
+          aria-label={`Open ticket ${ticketId} in the console`}
+          className={`${cls} hover:border-hr-green/40 hover:bg-hr-green/[0.06]`}
+        >
+          {inner}
+        </Link>
+      ) : (
+        <div className={cls}>{inner}</div>
+      )}
     </li>
   );
 }

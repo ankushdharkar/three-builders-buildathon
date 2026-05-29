@@ -51,10 +51,13 @@ export function LiveDashboard({
   tickets,
   runner = defaultRunner,
   persist = defaultPersist,
+  initialTicketId,
 }: {
   tickets: Ticket[];
   runner?: TriageRunner;
   persist?: Persist;
+  /** Deep-link target (`/?ticket=N`) forwarded to the presentational Dashboard. */
+  initialTicketId?: number;
 }) {
   const [views, setViews] = useState<TicketView[]>(() => tickets.map(seedView));
   const started = useRef(false);
@@ -89,5 +92,5 @@ export function LiveDashboard({
     };
   }, [tickets, runner, persist]);
 
-  return <Dashboard tickets={views} />;
+  return <Dashboard tickets={views} initialTicketId={initialTicketId} />;
 }

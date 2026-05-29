@@ -76,4 +76,20 @@ describe("<Dashboard />", () => {
     const drawer = screen.getByTestId("source-drawer");
     expect(within(drawer).getByText(/System Check verifies the candidate's browser/)).toBeInTheDocument();
   });
+
+  it("preselects the ticket named by initialTicketId (deep link)", () => {
+    render(<Dashboard tickets={MOCK_TICKETS} initialTicketId={6} />);
+    const current = screen.getByTestId("current-ticket");
+    expect(current).toHaveTextContent("invite teammates");
+  });
+
+  it("opens the drawer from a [src: n] chip in the justification footer", () => {
+    render(<Dashboard tickets={MOCK_TICKETS} initialTicketId={1} />);
+    const footer = screen.getByTestId("justification");
+    // ticket #1 justification ends with "[src: 1, 2]" → two source chips.
+    const chips = within(footer).getAllByRole("button", { name: /source [12]/i });
+    expect(chips.length).toBe(2);
+    fireEvent.click(chips[0]);
+    expect(screen.getByTestId("source-drawer")).toBeInTheDocument();
+  });
 });

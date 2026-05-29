@@ -36,8 +36,14 @@ const subjects: Record<number, string> = Object.fromEntries(
   decided.map((t, i) => [i, t.subject]),
 );
 
+// Row-index → ticket id, so a disagreement row deep-links to that ticket in the console.
+const ticketIds: Record<number, number> = Object.fromEntries(
+  decided.map((t, i) => [i, t.id]),
+);
+
 export const MOCK_ACCURACY: AccuracyData = {
   report: scoreSample(predictions, expected),
   matrices: buildConfusionMatrices(predictions, expected),
   subjects,
+  ticketIds,
 };

@@ -6,6 +6,7 @@ import { confidenceBars, statusBadge } from "./format";
 import { summarize } from "./summary";
 import { SourceDrawer } from "./SourceDrawer";
 import { resolveMockSourceDoc } from "./mockDocs";
+import { parseSrcRefs } from "./srcRefs";
 import type { Decision, DetectedRequest, Risk, Source, Urgency } from "../agent/types";
 import type { PipelineStep, SourceDoc, TicketView } from "./viewModel";
 
@@ -19,17 +20,27 @@ import type { PipelineStep, SourceDoc, TicketView } from "./viewModel";
 export function Dashboard({
   tickets,
   resolveSourceDoc = resolveMockSourceDoc,
+  initialTicketId,
 }: {
   tickets: TicketView[];
   /** Maps a clicked source to the article shown in the drawer; mock today, live later. */
   resolveSourceDoc?: (source: Source) => SourceDoc | null;
+  /** Deep-link target (e.g. `/?ticket=6` from the Accuracy/Review screens). */
+  initialTicketId?: number;
 }) {
-  // Default to the ticket currently being worked, else the first in the queue.
-  const initial = tickets.find((t) => t.state === "processing") ?? tickets[0];
+  // Honor a deep link first, else the ticket being worked, else the first in the queue.
+  const deepLinked = tickets.find((t) => t.id === initialTicketId);
+  const initial = deepLinked ?? tickets.find((t) => t.state === "processing") ?? tickets[0];
   const [selectedId, setSelectedId] = useState<number | undefined>(initial?.id);
   const selected = tickets.find((t) => t.id === selectedId) ?? initial;
 
   const [openDoc, setOpenDoc] = useState<SourceDoc | null>(null);
+  // Open the drawer for the n-th (1-based) source of the selected ticket, e.g. a [src:n] chip.
+  const openSource = (source: Source) => setOpenDoc(resolveSourceDoc(source));
+  const openSrcRef = (n: number) => {
+    const s = selected?.sources[n - 1];
+    if (s) openSource(s);
+  };
 
   const summary = summarize(tickets);
 
@@ -39,9 +50,9 @@ export function Dashboard({
       <div className="grid min-h-0 flex-1 grid-cols-[clamp(240px,23%,320px)_1fr_clamp(248px,27%,360px)]">
         <QueuePanel tickets={tickets} selectedId={selected?.id} onSelect={setSelectedId} />
         <CurrentTicketPanel ticket={selected} />
-        <SourcesPanel ticket={selected} onOpenSource={(s) => setOpenDoc(resolveSourceDoc(s))} />
+        <SourcesPanel ticket={selected} onOpenSource={openSource} />
       </div>
-      <JustificationFooter ticket={selected} />
+      <JustificationFooter ticket={selected} onOpenSrc={openSrcRef} />
       <SourceDrawer doc={openDoc} onClose={() => setOpenDoc(null)} />
     </div>
   );
@@ -496,7 +507,15 @@ function PipelineRow({ step }: { step: PipelineStep }) {
 
 /* ── Footer: Justification ───────────────────────────────────────────────── */
 
-function JustificationFooter({ ticket }: { ticket?: TicketView }) {
+function JustificationFooter({
+  ticket,
+  onOpenSrc,
+}: {
+  ticket?: TicketView;
+  onOpenSrc: (n: number) => void;
+}) {
+  const justification = ticket?.decision?.justification;
+  const sourceCount = ticket?.sources.length ?? 0;
   return (
     <footer
       data-testid="justification"
@@ -507,9 +526,34 @@ function JustificationFooter({ ticket }: { ticket?: TicketView }) {
         Justification
       </span>
       <p className="text-[13px] leading-snug text-foreground/80">
-        {ticket?.decision ? ticket.decision.justification : "—"}
+        {justification
+          ? parseSrcRefs(justification).map((seg, i) =>
+              "src" in seg ? (
+                <SrcChip key={i} n={seg.src} disabled={seg.src > sourceCount} onOpen={onOpenSrc} />
+              ) : (
+                <span key={i}>{seg.text}</span>
+              ),
+            )
+          : "—"}
       </p>
     </footer>
+  );
+}
+
+/** A clickable `[src: n]` citation chip that opens the n-th source in the drawer. */
+function SrcChip({ n, disabled, onOpen }: { n: number; disabled: boolean; onOpen: (n: number) => void }) {
+  if (disabled) {
+    return <span className="font-mono text-[11px] text-hr-muted-dim">[src {n}]</span>;
+  }
+  return (
+    <button
+      type="button"
+      aria-label={`Open source ${n}`}
+      onClick={() => onOpen(n)}
+      className="mx-0.5 rounded border border-hr-green/30 bg-hr-green/[0.06] px-1 py-px align-baseline font-mono text-[11px] text-hr-green-bright transition-colors hover:border-hr-green/60 hover:bg-hr-green/15"
+    >
+      src {n}
+    </button>
   );
 }
 

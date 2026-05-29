@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { AccuracyView } from "./AccuracyView";
 import { buildConfusionMatrices, scoreSample } from "./confusion";
 import type { AccuracyData } from "./confusion";
@@ -35,6 +35,7 @@ const data: AccuracyData = {
   report: scoreSample(predictions, expected),
   matrices: buildConfusionMatrices(predictions, expected),
   subjects: { 1: "Refund please", 2: "Add feature" },
+  ticketIds: { 1: 102, 2: 105 },
 };
 
 describe("<AccuracyView />", () => {
@@ -61,16 +62,16 @@ describe("<AccuracyView />", () => {
   it("lists each disagreement with expected vs predicted", () => {
     render(<AccuracyView data={data} />);
     const list = screen.getByTestId("disagreements");
-    expect(within(list).getAllByRole("button").length).toBe(2);
+    expect(within(list).getAllByRole("link").length).toBe(2);
     expect(list).toHaveTextContent("escalated");
     expect(list).toHaveTextContent("feature_request");
   });
 
-  it("selects a disagreement row on click", () => {
+  it("links each disagreement to its ticket in the console", () => {
     render(<AccuracyView data={data} />);
-    const rows = within(screen.getByTestId("disagreements")).getAllByRole("button");
-    expect(rows[0]).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(rows[0]);
-    expect(rows[0]).toHaveAttribute("aria-pressed", "true");
+    const links = within(screen.getByTestId("disagreements")).getAllByRole("link");
+    // disagreements are ordered [row 1 (status), row 2 (request_type)]
+    expect(links[0]).toHaveAttribute("href", "/?ticket=102");
+    expect(links[1]).toHaveAttribute("href", "/?ticket=105");
   });
 });

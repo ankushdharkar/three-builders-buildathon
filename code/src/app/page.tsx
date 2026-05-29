@@ -8,8 +8,22 @@ import { LiveDashboard } from "../dashboard/LiveDashboard";
  * `POST /api/triage` (007), folding results into the same Dashboard the mock used.
  * No env toggle: this always uses the live API, which returns the fake pipeline until
  * the server's `REAL_*` flags are on — so the page renders in every configuration.
+ *
+ * `?ticket=N` deep-links a specific ticket into focus — used by the Accuracy and Review
+ * screens to jump back here for inspection.
  */
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ ticket?: string }>;
+}) {
   const tickets = loadSupportTickets();
-  return <LiveDashboard tickets={tickets} />;
+  const { ticket } = await searchParams;
+  const parsed = ticket ? Number(ticket) : NaN;
+  return (
+    <LiveDashboard
+      tickets={tickets}
+      initialTicketId={Number.isFinite(parsed) ? parsed : undefined}
+    />
+  );
 }
