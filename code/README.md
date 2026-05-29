@@ -32,12 +32,26 @@ the Vitest `node` environment; React components opt into `jsdom` per-file with
 
 ```bash
 pnpm install
-cp ../.env.example ../.env   # then fill in keys (not needed for UI-only dev)
+cp ../.env.example .env   # creates code/.env; fill in keys (not needed for UI-only dev)
 ```
 
-Secrets are read from **environment variables only** — never hardcoded. Keys used
-later (not required to run the UI shell): `OPENROUTER_API_KEY` (chat),
-`OPENAI_API_KEY` (embeddings).
+Secrets are read from **environment variables only** — never hardcoded; `.env` is
+gitignored. Put real keys in **`code/.env`** — both the UI (`pnpm dev`, Next.js loads it
+automatically) and the CLI (`pnpm agent:run` / `agent:eval`, which pass
+`--env-file-if-exists=.env` to `tsx`) read it from there. With no `.env`, everything
+runs on fakes.
+
+### Using OpenRouter for chat
+
+```bash
+# code/.env
+OPENROUTER_API_KEY=sk-or-...   # chat; base URL is openrouter.ai/api/v1
+CHAT_MODEL=openai/gpt-4o       # optional; must support json_schema via OpenRouter
+REAL_LLM=1                     # flip the flag so the container uses the real client
+```
+
+Embeddings use `OPENAI_API_KEY` (`REAL_EMBEDDER`); retrieval falls back to a fake
+embedder when that flag is off, so OpenRouter chat works without an OpenAI key.
 
 ## Commands
 
@@ -49,6 +63,8 @@ later (not required to run the UI shell): `OPENROUTER_API_KEY` (chat),
 | `pnpm lint`       | ESLint                                     |
 | `pnpm test`       | Run unit tests once (Vitest)               |
 | `pnpm test:watch` | Run unit tests in watch mode               |
+| `pnpm agent:run`  | Batch CLI: tickets → `support_tickets/output.csv` (loads `code/.env`) |
+| `pnpm agent:eval` | Score predictions vs the sample set (loads `code/.env`) |
 
 ## Entry point
 
