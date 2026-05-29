@@ -1,10 +1,15 @@
-import { Dashboard } from "../dashboard/Dashboard";
-import { MOCK_TICKETS } from "../mock/tickets";
+import { loadSupportTickets } from "../agent/tickets";
+import { LiveDashboard } from "../dashboard/LiveDashboard";
 
 /**
- * Triage Console home. Renders off mock data for now (D1 UI shell); the live agent
- * pipeline will replace `MOCK_TICKETS` with streamed results in a later step.
+ * Triage Console home — driven by the live agent (build prompt 008).
+ *
+ * Loads the support tickets server-side, then the client streams each through
+ * `POST /api/triage` (007), folding results into the same Dashboard the mock used.
+ * No env toggle: this always uses the live API, which returns the fake pipeline until
+ * the server's `REAL_*` flags are on — so the page renders in every configuration.
  */
 export default function Home() {
-  return <Dashboard tickets={MOCK_TICKETS} />;
+  const tickets = loadSupportTickets();
+  return <LiveDashboard tickets={tickets} />;
 }
