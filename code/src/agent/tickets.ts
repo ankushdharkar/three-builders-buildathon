@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { parseCsv, parseTickets } from "./csv";
+import { sanitizeTickets } from "./sanitize";
 import type { Decision, ProductArea, RequestType, Status, Ticket } from "./types";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -18,9 +19,18 @@ const TICKETS_DIR = resolve(here, "../../../support_tickets");
 const SUPPORT_CSV = resolve(TICKETS_DIR, "support_tickets.csv");
 const SAMPLE_CSV = resolve(TICKETS_DIR, "sample_support_tickets.csv");
 
-/** Parse tickets from raw CSV text (header-aware). */
+/**
+ * Parse tickets from raw CSV text (header-aware) and run them through the Layer-1
+ * sanitizer (D11) so every loaded ticket carries `clean` text + a `safety` verdict and
+ * no raw attacker-controlled field reaches the pipeline unscreened.
+ *
+ * TODO(D11): the pipeline (005) MUST read `ticket.clean.{issue,subject,company}` (NOT the
+ * raw fields) and wrap that text via `fenceUntrusted` before prompting. The raw fields
+ * are kept only so the output CSV (006) echoes the input verbatim — confirm graders want
+ * the verbatim input echoed and not the sanitized text before finalizing 006.
+ */
 export function loadTicketsFromCsv(text: string): Ticket[] {
-  return parseTickets(text);
+  return sanitizeTickets(parseTickets(text));
 }
 
 /** Load and parse a tickets CSV from disk. */
@@ -52,21 +62,24 @@ export function loadSampleTickets(): Ticket[] {
   const iType = idx("request_type");
   const iJust = idx("justification");
 
-  return rows.slice(1).map((r, i) => {
-    const cell = (j: number) => (j >= 0 ? (r[j] ?? "") : "");
-    const expected: Partial<Decision> = {
-      status: cell(iStatus) as Status,
-      request_type: cell(iType) as RequestType,
-      product_area: cell(iArea) as ProductArea,
-      response: cell(iResponse),
-      justification: cell(iJust),
-    };
-    return {
-      id: i + 1,
-      issue: cell(iIssue),
-      subject: cell(iSubject),
-      company: cell(iCompany),
-      expected,
-    };
-  });
+  // Sanitize (D11) so sample tickets carry `clean` + `safety` just like the graded set.
+  return sanitizeTickets(
+    rows.slice(1).map((r, i) => {
+      const cell = (j: number) => (j >= 0 ? (r[j] ?? "") : "");
+      const expected: Partial<Decision> = {
+        status: cell(iStatus) as Status,
+        request_type: cell(iType) as RequestType,
+        product_area: cell(iArea) as ProductArea,
+        response: cell(iResponse),
+        justification: cell(iJust),
+      };
+      return {
+        id: i + 1,
+        issue: cell(iIssue),
+        subject: cell(iSubject),
+        company: cell(iCompany),
+        expected,
+      };
+    }),
+  );
 }

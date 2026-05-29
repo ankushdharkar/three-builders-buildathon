@@ -53,6 +53,34 @@ export type RequestType = "product_issue" | "feature_request" | "bug" | "invalid
 /** Risk band from the risk-check step; gates escalation (guardrails). */
 export type Risk = "LOW" | "MED" | "HIGH";
 
+/**
+ * Per-field result of the Layer-1 sanitizer (`sanitize.ts`, D11). Carried on a ticket
+ * so downstream steps (risk/classify) and the UI can react to malicious input without
+ * re-scanning. All booleans default false; `matched_rules` lists fired injection-rule
+ * ids for transparency.
+ */
+export interface SafetyFlags {
+  /** One or more prompt-injection heuristics fired. */
+  injection_suspected: boolean;
+  /** Ids of the injection rules that matched (see `INJECTION_RULES`). */
+  matched_rules: string[];
+  /** A secret-shaped token (API/Stripe key, credential assignment) was detected. */
+  contains_secret: boolean;
+  /** PII-shaped data (email, long digit run / card-like) was detected. */
+  contains_pii: boolean;
+  /** Zero-width / bidi / control chars were present (evasion or spoofing). */
+  unicode_obfuscation: boolean;
+  /** The field exceeded the length cap and was truncated. */
+  truncated: boolean;
+}
+
+/** Aggregate + per-field safety verdict attached to a sanitized ticket. */
+export interface TicketSafety {
+  /** OR/union across the three fields — the ticket-level signal. */
+  flags: SafetyFlags;
+  fields: { issue: SafetyFlags; subject: SafetyFlags; company: SafetyFlags };
+}
+
 /** One input ticket from `support_tickets.csv` (id is the 1-based row index). */
 export interface Ticket {
   id: number;
@@ -61,6 +89,14 @@ export interface Ticket {
   company: "HackerRank" | "None" | string;
   /** Present only for the sample set (expected-output columns), used in eval. */
   expected?: Partial<Decision>;
+  /**
+   * Sanitized field text (D11 Layer 1). The original `issue`/`subject`/`company` stay
+   * verbatim for a faithful output-CSV echo; the pipeline MUST read from `clean` so no
+   * raw attacker-controlled text reaches the prompt. Populated by `sanitizeTicket`.
+   */
+  clean?: { issue: string; subject: string; company: string };
+  /** Malicious-input verdict from the sanitizer (D11). Populated by `sanitizeTicket`. */
+  safety?: TicketSafety;
 }
 
 /** A retrieved corpus article backing the decision (grounding evidence). */
