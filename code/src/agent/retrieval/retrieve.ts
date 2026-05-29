@@ -57,7 +57,8 @@ interface DocMeta {
 interface Built {
   metas: Map<string, DocMeta>;
   bm25: Bm25Index;
-  embeds: EmbedStore;
+  /** `null` when the semantic half is unavailable — retrieval degrades to BM25-only. */
+  embeds: EmbedStore | null;
 }
 
 /** Build the `Retriever` port over the given corpus + embedder. */
@@ -89,13 +90,27 @@ export function createRetriever(deps: CreateRetrieverDeps): Retriever {
         });
 
         const bm25 = buildBm25(indexDocs);
-        const embeds = createEmbedStore({
+        const store = createEmbedStore({
           docs: indexDocs,
           embed: (texts) => embedder.embed(texts),
           modelId,
           cachePath: deps.cachePath,
         });
-        await embeds.ready();
+        // Embeddings are the SEMANTIC half of the hybrid. If they fail (provider down,
+        // 429, dimension mismatch), degrade to BM25-only rather than losing ALL
+        // retrieval — empty sources make decide.ts escalate as "out of corpus"
+        // (regression #10). Fail loud (warn), never silent.
+        let embeds: EmbedStore | null = store;
+        try {
+          await store.ready();
+        } catch (err) {
+          console.warn(
+            `[retrieval] embeddings unavailable — falling back to BM25-only: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+          embeds = null;
+        }
         return { metas, bm25, embeds };
       })();
     }
@@ -120,10 +135,24 @@ export function createRetriever(deps: CreateRetrieverDeps): Retriever {
     const k = opts?.k ?? DEFAULT_K;
     const { metas, bm25, embeds } = await build();
 
-    // Rank all docs by each signal, then fuse positions with RRF.
+    // Rank by each signal, then fuse with RRF. Embeddings are best-effort: if the
+    // semantic half is unavailable or errors for this query, fall back to BM25-only so
+    // retrieval never goes empty on a healthy corpus (regression #10).
     const bm25Ranking = bm25.search(query).map((s) => s.id);
-    const embedRanking = (await embeds.search(query)).map((s) => s.id);
-    const fused = rrf([bm25Ranking, embedRanking], RRF_K);
+    let embedRanking: string[] = [];
+    if (embeds) {
+      try {
+        embedRanking = (await embeds.search(query)).map((s) => s.id);
+      } catch (err) {
+        console.warn(
+          `[retrieval] embedding search failed — BM25-only for this query: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+    const rankings = embedRanking.length > 0 ? [bm25Ranking, embedRanking] : [bm25Ranking];
+    const fused = rrf(rankings, RRF_K);
 
     return fused.slice(0, Math.max(1, k)).map((f) => {
       const m = metas.get(f.id)!;
