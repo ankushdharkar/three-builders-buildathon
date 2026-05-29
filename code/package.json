@@ -9,8 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "agent:run": "tsx src/cli/run.ts",
-    "agent:eval": "tsx src/cli/eval.ts"
+    "agent:run": "tsx --env-file-if-exists=.env src/cli/run.ts",
+    "agent:eval": "tsx --env-file-if-exists=.env src/cli/eval.ts"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",
