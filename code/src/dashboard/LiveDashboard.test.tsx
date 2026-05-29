@@ -1,9 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-
-import { vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import type { PipelineEvent, Ticket } from "../agent/types";
 import { LiveDashboard, type Persist, type RunResult, type TriageRunner } from "./LiveDashboard";
@@ -41,13 +39,23 @@ const scripted: PipelineEvent[] = [
   },
 ];
 
-describe("LiveDashboard", () => {
-  it("seeds the queue then streams a ticket to its final replied decision", async () => {
-    const runner: TriageRunner = async (_t, onEvent) => {
-      for (const e of scripted) onEvent(e);
-    };
+const replay: TriageRunner = async (_t, onEvent) => {
+  for (const e of scripted) onEvent(e);
+};
 
-    render(<LiveDashboard tickets={[ticket]} runner={runner} persist={noPersist} />);
+describe("LiveDashboard", () => {
+  it("does not process on mount — the queue stays queued until Run is clicked", () => {
+    render(<LiveDashboard tickets={[ticket]} runner={replay} persist={noPersist} />);
+
+    const queue = screen.getByTestId("queue");
+    expect(within(queue).getByText("queued")).toBeInTheDocument();
+    expect(screen.queryByTestId("decision-card")).toBeNull();
+  });
+
+  it("streams a ticket to its final replied decision once Run is clicked", async () => {
+    render(<LiveDashboard tickets={[ticket]} runner={replay} persist={noPersist} />);
+
+    fireEvent.click(screen.getByTestId("run-button"));
 
     // The streamed decision renders through the same Dashboard components.
     await waitFor(() => expect(screen.getByTestId("decision-card")).toBeInTheDocument());
@@ -58,25 +66,30 @@ describe("LiveDashboard", () => {
     expect(within(queue).getByText("replied")).toBeInTheDocument();
   });
 
-  it("renders a queued seed before any events arrive", () => {
-    const never: TriageRunner = () => new Promise(() => {});
-    render(<LiveDashboard tickets={[ticket]} runner={never} persist={noPersist} />);
-    const queue = screen.getByTestId("queue");
-    expect(within(queue).getByText("queued")).toBeInTheDocument();
-  });
-
   it("persists the completed run (regenerates output.csv) after the queue finishes", async () => {
-    const runner: TriageRunner = async (_t, onEvent) => {
-      for (const e of scripted) onEvent(e);
-    };
     const persist = vi.fn<Persist>(async () => {});
 
-    render(<LiveDashboard tickets={[ticket]} runner={runner} persist={persist} />);
+    render(<LiveDashboard tickets={[ticket]} runner={replay} persist={persist} />);
+    fireEvent.click(screen.getByTestId("run-button"));
 
     await waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
     const results = persist.mock.calls[0][0] as RunResult[];
     expect(results).toHaveLength(1);
     expect(results[0].ticket.id).toBe(1);
     expect(results[0].decision.status).toBe("replied");
+  });
+
+  it("re-runs the whole queue when Run is clicked again", async () => {
+    const runner = vi.fn<TriageRunner>(replay);
+
+    render(<LiveDashboard tickets={[ticket]} runner={runner} persist={noPersist} />);
+
+    fireEvent.click(screen.getByTestId("run-button"));
+    await waitFor(() => expect(screen.getByTestId("decision-card")).toBeInTheDocument());
+    expect(runner).toHaveBeenCalledTimes(1);
+
+    // After completion the control invites a re-run and drives the queue a second time.
+    fireEvent.click(screen.getByTestId("run-button"));
+    await waitFor(() => expect(runner).toHaveBeenCalledTimes(2));
   });
 });

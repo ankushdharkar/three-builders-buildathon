@@ -21,12 +21,15 @@ export function Dashboard({
   tickets,
   resolveSourceDoc = resolveMockSourceDoc,
   initialTicketId,
+  onRun,
 }: {
   tickets: TicketView[];
   /** Maps a clicked source to the article shown in the drawer; mock today, live later. */
   resolveSourceDoc?: (source: Source) => SourceDoc | null;
   /** Deep-link target (e.g. `/?ticket=6` from the Accuracy/Review screens). */
   initialTicketId?: number;
+  /** Starts (or re-runs) the triage queue. When omitted, no Run control is shown. */
+  onRun?: () => void;
 }) {
   // Honor a deep link first, else the ticket being worked, else the first in the queue.
   const deepLinked = tickets.find((t) => t.id === initialTicketId);
@@ -46,7 +49,7 @@ export function Dashboard({
 
   return (
     <div className="signal-canvas flex h-screen flex-col bg-background font-sans text-foreground">
-      <Header summary={summary} />
+      <Header summary={summary} onRun={onRun} />
       <div className="grid min-h-0 flex-1 grid-cols-[clamp(240px,23%,320px)_1fr_clamp(248px,27%,360px)]">
         <QueuePanel tickets={tickets} selectedId={selected?.id} onSelect={setSelectedId} />
         <CurrentTicketPanel ticket={selected} />
@@ -78,7 +81,13 @@ const TONE_TEXT: Record<BadgeTone, string> = {
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
 
-function Header({ summary }: { summary: ReturnType<typeof summarize> }) {
+function Header({
+  summary,
+  onRun,
+}: {
+  summary: ReturnType<typeof summarize>;
+  onRun?: () => void;
+}) {
   const segments = Array.from({ length: summary.total });
   return (
     <header className="glass flex items-center gap-7 border-b border-hr-border px-6 py-3.5">
@@ -105,6 +114,8 @@ function Header({ summary }: { summary: ReturnType<typeof summarize> }) {
       </div>
 
       <RunStatePill state={summary.runState} />
+
+      {onRun && <RunButton runState={summary.runState} onRun={onRun} />}
 
       <div className="ml-auto flex items-center gap-5 font-mono text-xs">
         <Tally label="replied" value={summary.replied} dot="var(--hr-green-bright)" className="text-hr-green-bright" />
@@ -135,6 +146,40 @@ function RunStatePill({ state }: { state: ReturnType<typeof summarize>["runState
       />
       {state}
     </span>
+  );
+}
+
+/**
+ * Run control (replaces the old auto-run-on-load). Drives the queue on click; the label
+ * follows the run state — Run (idle) ▸ Running… (in flight, disabled) ▸ Re-run (done).
+ */
+function RunButton({
+  runState,
+  onRun,
+}: {
+  runState: ReturnType<typeof summarize>["runState"];
+  onRun: () => void;
+}) {
+  const running = runState === "RUNNING";
+  const label = running ? "Running…" : runState === "DONE" ? "Re-run" : "Run";
+  return (
+    <button
+      type="button"
+      data-testid="run-button"
+      onClick={onRun}
+      disabled={running}
+      aria-label={label}
+      className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-all ${
+        running
+          ? "cursor-not-allowed border-hr-slate text-hr-muted-dim"
+          : "border-hr-green/50 bg-hr-green/10 text-hr-green-bright hover:bg-hr-green/20 hover:shadow-[0_0_16px_-4px_var(--hr-green-bright)]"
+      }`}
+    >
+      <span aria-hidden className="font-sans text-[13px] leading-none">
+        {running ? "" : runState === "DONE" ? "↻" : "▶"}
+      </span>
+      {label}
+    </button>
   );
 }
 
@@ -242,6 +287,8 @@ function CurrentTicketPanel({ ticket }: { ticket?: TicketView }) {
           <DecisionCard decision={ticket.decision} />
           <ResponseBlock decision={ticket.decision} />
         </>
+      ) : ticket.state === "queued" ? (
+        <QueuedNote />
       ) : (
         <ProcessingNote />
       )}
@@ -389,6 +436,18 @@ function ResponseBlock({ decision }: { decision: Decision }) {
         />
         <p className="whitespace-pre-wrap pl-3 text-[14px] leading-relaxed text-foreground/90">{decision.response}</p>
       </div>
+    </div>
+  );
+}
+
+function QueuedNote() {
+  return (
+    <div
+      className="rise-in mt-6 flex items-center gap-3 rounded-xl border border-hr-border bg-panel/60 p-5 text-sm text-hr-muted"
+      style={{ animationDelay: "160ms" }}
+    >
+      <span className="dot" style={{ "--dot": "var(--hr-slate)", fontSize: 12 } as React.CSSProperties} />
+      <span className="font-mono text-[13px]">Queued — press Run to triage this ticket.</span>
     </div>
   );
 }

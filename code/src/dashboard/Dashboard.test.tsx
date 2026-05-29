@@ -1,8 +1,22 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { Dashboard } from "./Dashboard";
 import { MOCK_TICKETS } from "../mock/tickets";
+import type { TicketView } from "./viewModel";
+
+/** A queued ticket (run not started) → header is IDLE, center shows the idle note. */
+const queuedViews: TicketView[] = [
+  {
+    id: 1,
+    subject: "Test expiry",
+    company: "HackerRank",
+    issue: "How long do tests stay active?",
+    state: "queued",
+    sources: [],
+    pipeline: [],
+  },
+];
 
 describe("<Dashboard />", () => {
   it("renders the header with the done/total tally", () => {
@@ -91,6 +105,25 @@ describe("<Dashboard />", () => {
     render(<Dashboard tickets={MOCK_TICKETS} initialTicketId={6} />);
     const current = screen.getByTestId("current-ticket");
     expect(current).toHaveTextContent("invite teammates");
+  });
+
+  it("renders a Run control that fires onRun when clicked", () => {
+    const onRun = vi.fn();
+    render(<Dashboard tickets={queuedViews} onRun={onRun} />);
+    fireEvent.click(screen.getByTestId("run-button"));
+    expect(onRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits the Run control when no onRun handler is provided", () => {
+    render(<Dashboard tickets={queuedViews} />);
+    expect(screen.queryByTestId("run-button")).toBeNull();
+  });
+
+  it("prompts the user to press Run for a queued ticket (not the triaging note)", () => {
+    render(<Dashboard tickets={queuedViews} onRun={() => {}} />);
+    const current = screen.getByTestId("current-ticket");
+    expect(current).toHaveTextContent(/press run/i);
+    expect(current).not.toHaveTextContent(/triaging/i);
   });
 
   it("opens the drawer from a [src: n] chip in the justification footer", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import type { Decision, PipelineEvent, Ticket } from "../agent/types";
 import { applyEvent, seedView } from "../app/lib/triageSource";
@@ -39,12 +39,14 @@ const defaultPersist: Persist = async (results) => {
 
 /**
  * Client wrapper that drives the Triage Console from the live agent (build prompt 008).
- * Seeds the queue from the loaded tickets, runs each through `POST /api/triage` (007),
- * folding streamed `PipelineEvent`s into the matching `TicketView` with `applyEvent`,
- * and renders the same presentational `Dashboard`. Tickets run sequentially so the
- * queue visibly fills in (D9 auto-run). When the run finishes, the collected decisions
- * are POSTed to `/api/output`, which regenerates `support_tickets/output.csv` — so a
- * fresh UI start always rewrites the graded file from that run. `runner`/`persist` are
+ * Seeds the queue from the loaded tickets and renders the same presentational
+ * `Dashboard`. The run is **user-triggered**: pressing Run (the Dashboard's `onRun`
+ * control) streams each ticket through `POST /api/triage` (007), folding streamed
+ * `PipelineEvent`s into the matching `TicketView` with `applyEvent`. Tickets run
+ * sequentially so the queue visibly fills in. When the run finishes, the collected
+ * decisions are POSTed to `/api/output`, which regenerates `support_tickets/output.csv`
+ * — so the graded file is rewritten from each run rather than on every page load.
+ * Pressing Run again re-seeds the queue and runs from scratch. `runner`/`persist` are
  * injectable for tests; production uses `streamTriage` / the fetch writer.
  */
 export function LiveDashboard({
@@ -60,20 +62,20 @@ export function LiveDashboard({
   initialTicketId?: number;
 }) {
   const [views, setViews] = useState<TicketView[]>(() => tickets.map(seedView));
-  const started = useRef(false);
+  // Guards against re-entrant Run clicks while a run is already in flight.
+  const running = useRef(false);
 
-  useEffect(() => {
-    if (started.current) return; // run the queue exactly once
-    started.current = true;
-    let cancelled = false;
+  const run = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
+    // Re-seed so a re-run starts from a clean, fully-queued board.
+    setViews(tickets.map(seedView));
     const results: RunResult[] = [];
 
-    void (async () => {
+    try {
       for (const ticket of tickets) {
-        if (cancelled) return;
         try {
           await runner(ticket, (event) => {
-            if (cancelled) return;
             if ("decision" in event) results.push({ ticket, decision: event.decision });
             setViews((prev) =>
               prev.map((v) => (v.id === ticket.id ? applyEvent(v, event) : v)),
@@ -84,13 +86,11 @@ export function LiveDashboard({
         }
       }
       // Regenerate output.csv from this run (best-effort).
-      if (!cancelled && results.length > 0) await persist(results);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+      if (results.length > 0) await persist(results);
+    } finally {
+      running.current = false;
+    }
   }, [tickets, runner, persist]);
 
-  return <Dashboard tickets={views} initialTicketId={initialTicketId} />;
+  return <Dashboard tickets={views} initialTicketId={initialTicketId} onRun={run} />;
 }
