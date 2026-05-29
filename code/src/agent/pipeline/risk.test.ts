@@ -32,10 +32,35 @@ describe("assessRisk", () => {
     expect(assessRisk(ticket("Please increase my score on the last test, it is unfair")).risk).toBe("HIGH");
   });
 
+  it("flags a grade dispute via 'graded ... unfairly' even when wrapping corrupts a trigger word (009)", () => {
+    // Real ticket data had a literal newline inside "increase" ("i\\nncrease"), which
+    // defeats a \\b word-boundary match. The 'graded ... unfairly' phrasing is a robust,
+    // general grade-dispute signal that must still escalate this.
+    const a = assessRisk(
+      ticket("Please review my answers, i\nncrease my score; the platform graded me unfairly."),
+    );
+    expect(a.risk).toBe("HIGH");
+    expect(a.signals).toContain("score-dispute");
+  });
+
   it("flags a full platform outage as HIGH", () => {
     expect(
       assessRisk(ticket("The entire platform is down, nobody on my team can access anything")).risk,
     ).toBe("HIGH");
+  });
+
+  it("flags a plain site-down / pages-inaccessible report as a HIGH outage (009)", () => {
+    // Sample row 1: "site is down & none of the pages are accessible" — a site-wide
+    // outage that must escalate. The narrower 'entire site is down' phrasing missed it.
+    const a = assessRisk(ticket("site is down & none of the pages are accessible"));
+    expect(a.risk).toBe("HIGH");
+    expect(a.signals).toContain("outage");
+  });
+
+  it("does NOT treat a single-page load problem as an outage (no over-escalation)", () => {
+    // Guard: one page/test not loading is an ordinary product issue, not a site outage.
+    const a = assessRisk(ticket("My coding test page won't load when I click start"));
+    expect(a.signals).not.toContain("outage");
   });
 
   it("treats a plain FAQ as LOW risk", () => {

@@ -8,6 +8,7 @@
  * and finally the grounded-answer default.
  */
 
+import { isProductArea } from "../types";
 import type { Source, Status, Ticket } from "../types";
 import type { Classification } from "./classify";
 import type { RiskAssessment } from "./risk";
@@ -31,7 +32,13 @@ export interface Routing {
   reasons: string[];
 }
 
-/** Below this confidence we don't auto-reply — escalate and flag for human review. */
+/**
+ * Below this confidence we still REPLY (grounded) but flag the decision for human
+ * review. (009: low confidence is deliberately NOT an escalation trigger — with
+ * BM25-only retrieval, relevance/confidence scores are modest for ordinary answerable
+ * FAQ tickets, and escalating those was the over-escalation bug. We escalate only on
+ * genuine risk / out-of-corpus / new-area signals, not on a modest score.)
+ */
 const LOW_CONFIDENCE = 0.45;
 
 export function decide(
@@ -97,8 +104,11 @@ export function decide(
   // 4. High-risk (money / PII / account deletion / score dispute) → escalate.
   if (risky) return escalate(base, `high-risk: ${assessment.signals.join(", ")}`);
 
-  // 5. A detected new product area → escalate + human review (D8 open-set / B1).
-  if (c.suggested_product_area) {
+  // 5. A GENUINELY new product area (outside the closed set) → escalate + human review
+  //    (D8 open-set / B1). The model sometimes fills `suggested_product_area` with a value
+  //    that is ALREADY in our closed set (e.g. "screen"); that is not a new area, so it
+  //    must NOT escalate (009 — was the over-escalation root cause for ordinary FAQs).
+  if (c.suggested_product_area && !isProductArea(c.suggested_product_area.value)) {
     return {
       ...base,
       status: "escalated",
@@ -108,18 +118,7 @@ export function decide(
     };
   }
 
-  // 6. Low confidence → don't guess; escalate + review.
-  if (c.confidence < LOW_CONFIDENCE) {
-    return {
-      ...base,
-      status: "escalated",
-      responseKind: "escalation",
-      needs_review: true,
-      reasons: ["low classification confidence"],
-    };
-  }
-
-  // 7. Nothing in the corpus supports an answer.
+  // 6. Nothing in the corpus supports an answer (genuinely out-of-corpus).
   if (!supported) {
     if (outOfScope) {
       return {
@@ -139,13 +138,19 @@ export function decide(
     };
   }
 
-  // 8. Default — grounded answer.
+  // 7. Default — grounded answer. A modest confidence still replies, but is flagged
+  //    for human review rather than escalated (009).
+  const lowConfidence = c.confidence < LOW_CONFIDENCE;
   return {
     ...base,
     status: "replied",
     responseKind: "answer",
-    needs_review: false,
-    reasons: ["supported, low-risk, confident — grounded reply"],
+    needs_review: lowConfidence,
+    reasons: [
+      lowConfidence
+        ? "supported, low-risk — grounded reply (low confidence, flagged for review)"
+        : "supported, low-risk, confident — grounded reply",
+    ],
   };
 }
 

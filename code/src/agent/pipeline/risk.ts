@@ -29,16 +29,19 @@ const HIGH_RULES: Rule[] = [
     band: "HIGH",
     test: /\b(billing|invoice|wrong charge|over ?charge|double ?charge|subscription|payment|credit card|debit card)\b/i,
   },
-  { signal: "score-dispute", band: "HIGH", test: /\b(increase|raise|change|fix|boost|adjust|dispute)\b[\s\S]{0,30}\b(score|rating|rank|result)\b|\b(score|result)\b[\s\S]{0,20}\bunfair\b/i },
+  { signal: "score-dispute", band: "HIGH", test: /\b(increase|raise|change|fix|boost|adjust|dispute)\b[\s\S]{0,30}\b(score|rating|rank|result)\b|\b(score|result)\b[\s\S]{0,20}\bunfair\b|\bgraded?\b[\s\S]{0,20}\bunfair/i },
   {
     signal: "account-deletion",
     band: "HIGH",
     test: /\b(delete|close|deactivate|remove|wipe)\b[\s\S]{0,20}\b(my )?(account|profile|data)\b/i,
   },
   {
+    // Site-wide outage language only — a single page/test failing to load is an ordinary
+    // product issue, so we require platform/site-level wording or total inaccessibility,
+    // not "a page won't load".
     signal: "outage",
     band: "HIGH",
-    test: /\b(outage|entire (platform|site|system) (is )?down|everything is down|nobody can (access|log ?in)|whole (team|company) (is )?blocked|all (tests|candidates) (are )?(down|failing|blocked))\b/i,
+    test: /\b(outage|(entire |whole )?(platform|site|website|portal|system) (is )?(down|unavailable|inaccessible)|everything is down|none of (the )?(pages?|tests?) (are )?(accessible|loading|working)|nobody can (access|log ?in)|whole (team|company) (is )?blocked|all (tests|candidates) (are )?(down|failing|blocked))\b/i,
   },
 ];
 
