@@ -17,6 +17,13 @@ Everything below is *our* project memory: keep it current, append decisions as w
 2. **All agent code lives in `code/` only** (per README + `AGENTS.md` §6). The only
    files we touch outside `code/` are: `support_tickets/output.csv` (required output),
    repo governance (`CLAUDE.md`), and our out-of-repo notes (`~/Workspaces/output`).
+3. **Always practice TDD — tests first, then build the feature out.** For every
+   feature (logic *and* UI), write the failing test(s) first, watch them fail (red),
+   then write the minimum code to make them pass (green), then refactor. Never write
+   feature code before there is a test asserting the behavior. Pure logic is tested in
+   the Vitest `node` environment; React components in `jsdom` via Testing Library.
+   Grow features incrementally behind passing tests; keep the suite green before every
+   commit/merge (`pnpm test`). Reproduce bugs with a failing test before fixing them.
 
 ## 0. Shared source of truth (read every session)
 
@@ -107,6 +114,6 @@ Scored across five dimensions — make decisions with all of them in mind:
 - [x] Pick retrieval approach → **hybrid BM25 + OpenAI online embeddings (RRF)** (see §2).
 - [x] Pick chat LLM → **OpenRouter chat + OpenAI embeds, flagship + temp 0/seed** (see §2).
 - [x] Confirm `product_area` taxonomy (T5) → **D8: corpus-native closed set + hybrid vote + open-set suggestion** (see §2).
-- [ ] Decide demo run mode (auto-run vs manual step vs both).
+- [x] Decide demo run mode → **D9: auto-run, event-driven** (manual step = backlog B2).
 - [ ] Build order: UI spec → scaffold → retrieval → reasoning + routing → run on
       `support_tickets.csv` → write `output.csv`.
