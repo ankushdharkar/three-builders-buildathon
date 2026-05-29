@@ -8,11 +8,11 @@ import type { Decision, Risk, Source } from "../agent/types";
 import type { PipelineStep, TicketView } from "./viewModel";
 
 /**
- * The Triage Console (D1): a three-column dashboard — queue ▸ current ticket +
- * decision/response ▸ retrieved sources + pipeline — over a justification footer.
- * Pure presentation driven entirely by the `tickets` prop, so it renders identically
- * from mock data today and from the live agent later. Selection is the only local
- * state; everything else is derived.
+ * The Triage Console (D1) — "Signal" treatment: a mission-control three-column
+ * dashboard (queue ▸ current ticket + decision/response ▸ sources + pipeline) over a
+ * justification footer. Pure presentation driven entirely by the `tickets` prop, so it
+ * renders identically from mock data today and from the live agent later. Selection is
+ * the only local state; everything else is derived.
  */
 export function Dashboard({ tickets }: { tickets: TicketView[] }) {
   // Default to the ticket currently being worked, else the first in the queue.
@@ -23,9 +23,9 @@ export function Dashboard({ tickets }: { tickets: TicketView[] }) {
   const summary = summarize(tickets);
 
   return (
-    <div className="flex h-screen flex-col bg-background text-foreground">
+    <div className="signal-canvas flex h-screen flex-col bg-background font-sans text-foreground">
       <Header summary={summary} />
-      <div className="grid min-h-0 flex-1 grid-cols-[clamp(220px,22%,300px)_1fr_clamp(240px,26%,340px)]">
+      <div className="grid min-h-0 flex-1 grid-cols-[clamp(240px,23%,320px)_1fr_clamp(248px,27%,360px)]">
         <QueuePanel tickets={tickets} selectedId={selected?.id} onSelect={setSelectedId} />
         <CurrentTicketPanel ticket={selected} />
         <SourcesPanel ticket={selected} />
@@ -35,39 +35,62 @@ export function Dashboard({ tickets }: { tickets: TicketView[] }) {
   );
 }
 
+/* ── Tone → color mapping ────────────────────────────────────────────────── */
+
+const DOT_COLOR: Record<BadgeTone, string> = {
+  success: "var(--hr-green-bright)",
+  warn: "var(--hr-amber)",
+  muted: "var(--hr-muted-dim)",
+  active: "var(--hr-green-bright)",
+  idle: "var(--hr-slate)",
+};
+
+const TONE_TEXT: Record<BadgeTone, string> = {
+  success: "text-hr-green-bright",
+  warn: "text-hr-amber",
+  muted: "text-hr-muted",
+  active: "text-hr-green-bright",
+  idle: "text-hr-muted-dim",
+};
+
 /* ── Header ──────────────────────────────────────────────────────────────── */
 
 function Header({ summary }: { summary: ReturnType<typeof summarize> }) {
   const segments = Array.from({ length: summary.total });
   return (
-    <header className="flex items-center gap-6 border-b border-hr-border bg-panel px-5 py-3">
-      <div className="flex items-center gap-2">
-        <span className="grid h-6 w-6 place-items-center rounded bg-hr-green font-mono text-sm font-bold text-black">
+    <header className="glass flex items-center gap-7 border-b border-hr-border px-6 py-3.5">
+      <div className="flex items-center gap-2.5">
+        <span className="relative grid h-7 w-7 place-items-center rounded-md bg-hr-green font-mono text-sm font-bold text-black shadow-[0_0_16px_-2px_var(--hr-green)]">
           {">"}
         </span>
-        <h1 className="text-sm font-semibold tracking-tight">
-          HackerRank <span className="text-hr-muted">Support Triage</span>
+        <h1 className="font-display text-[15px] font-semibold tracking-tight">
+          HackerRank <span className="font-normal text-hr-muted">Support Triage</span>
         </h1>
       </div>
 
-      <div className="flex items-center gap-1" aria-hidden>
-        {segments.map((_, i) => (
-          <span
-            key={i}
-            className={`h-2 w-2 rounded-sm ${i < summary.done ? "bg-hr-green-bright" : "bg-hr-slate/60"}`}
-          />
-        ))}
+      {/* Segmented signal bar: thin bars, lit for done tickets. */}
+      <div className="flex items-end gap-[3px]" aria-hidden>
+        {segments.map((_, i) => {
+          const lit = i < summary.done;
+          return (
+            <span
+              key={i}
+              className={`w-[3px] rounded-full ${lit ? "h-4 bg-hr-green-bright shadow-[0_0_6px_-1px_var(--hr-green-bright)]" : "h-2.5 bg-hr-slate/50"}`}
+            />
+          );
+        })}
       </div>
 
       <RunStatePill state={summary.runState} />
 
-      <div className="ml-auto flex items-center gap-4 font-mono text-xs">
-        <Tally label="replied" value={summary.replied} className="text-hr-green-bright" />
-        <Tally label="escalated" value={summary.escalated} className="text-hr-amber" />
-        <Tally label="invalid" value={summary.invalid} className="text-hr-muted" />
-        <span data-testid="progress-tally" className="text-sm font-semibold">
-          {summary.done} / {summary.total}
-          <span className="ml-1 text-hr-muted">done</span>
+      <div className="ml-auto flex items-center gap-5 font-mono text-xs">
+        <Tally label="replied" value={summary.replied} dot="var(--hr-green-bright)" className="text-hr-green-bright" />
+        <Tally label="escalated" value={summary.escalated} dot="var(--hr-amber)" className="text-hr-amber" />
+        <Tally label="invalid" value={summary.invalid} dot="var(--hr-muted-dim)" className="text-hr-muted" />
+        <span className="h-5 w-px bg-hr-border" aria-hidden />
+        <span data-testid="progress-tally" className="font-display text-base font-semibold tracking-tight">
+          {summary.done} <span className="text-hr-muted-dim">/</span> {summary.total}
+          <span className="ml-1.5 font-sans text-[11px] font-normal uppercase tracking-wider text-hr-muted">done</span>
         </span>
       </div>
     </header>
@@ -75,37 +98,34 @@ function Header({ summary }: { summary: ReturnType<typeof summarize> }) {
 }
 
 function RunStatePill({ state }: { state: ReturnType<typeof summarize>["runState"] }) {
-  const tone =
-    state === "RUNNING"
-      ? "border-hr-green text-hr-green-bright"
-      : state === "DONE"
-        ? "border-hr-green/40 text-hr-muted"
-        : "border-hr-slate text-hr-muted";
+  const running = state === "RUNNING";
+  const tone = running
+    ? "border-hr-green/50 text-hr-green-bright"
+    : state === "DONE"
+      ? "border-hr-green/25 text-hr-muted"
+      : "border-hr-slate text-hr-muted";
   return (
-    <span className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] tracking-wider ${tone}`}>
-      {state === "RUNNING" ? "▶ " : ""}
+    <span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] font-medium tracking-[0.15em] ${tone}`}>
+      <span
+        className={`dot ${running ? "dot-glow dot-ping" : ""}`}
+        style={{ "--dot": running ? "var(--hr-green-bright)" : "var(--hr-slate)", fontSize: 10 } as React.CSSProperties}
+      />
       {state}
     </span>
   );
 }
 
-function Tally({ label, value, className }: { label: string; value: number; className: string }) {
+function Tally({ label, value, dot, className }: { label: string; value: number; dot: string; className: string }) {
   return (
-    <span className={className}>
-      {label} <span className="font-semibold">{value}</span>
+    <span className={`flex items-center gap-1.5 ${className}`}>
+      <span className="dot dot-glow" style={{ "--dot": dot, fontSize: 8 } as React.CSSProperties} />
+      <span className="text-hr-muted">{label}</span>
+      <span className="font-semibold">{value}</span>
     </span>
   );
 }
 
 /* ── Left: Queue ─────────────────────────────────────────────────────────── */
-
-const TONE_CLASSES: Record<BadgeTone, string> = {
-  success: "text-hr-green-bright",
-  warn: "text-hr-amber",
-  muted: "text-hr-muted",
-  active: "text-hr-green-bright hr-pulse",
-  idle: "text-hr-slate",
-};
 
 function QueuePanel({
   tickets,
@@ -117,28 +137,37 @@ function QueuePanel({
   onSelect: (id: number) => void;
 }) {
   return (
-    <aside className="flex min-h-0 flex-col border-r border-hr-border bg-panel">
+    <aside className="glass flex min-h-0 flex-col border-r border-hr-border">
       <PanelTitle>Queue</PanelTitle>
-      <ul data-testid="queue" className="min-h-0 flex-1 overflow-y-auto">
-        {tickets.map((t) => {
+      <ul data-testid="queue" className="min-h-0 flex-1 overflow-y-auto py-1.5">
+        {tickets.map((t, i) => {
           const badge = statusBadge(t.state);
           const active = t.id === selectedId;
+          const processing = t.state === "processing";
           return (
-            <li key={t.id}>
+            <li key={t.id} className="rise-in px-2" style={{ animationDelay: `${i * 35}ms` }}>
               <button
                 type="button"
                 aria-label={`Ticket #${t.id}: ${t.subject}`}
                 aria-current={active}
                 onClick={() => onSelect(t.id)}
-                className={`flex w-full items-center gap-2 border-l-2 px-3 py-2.5 text-left transition-colors ${
+                className={`group relative flex w-full items-center gap-2.5 rounded-md border px-3 py-2.5 text-left transition-all ${
                   active
-                    ? "border-hr-green bg-panel-raised"
-                    : "border-transparent hover:bg-panel-raised/60"
+                    ? "border-hr-green/40 bg-hr-green/[0.07] shadow-[inset_2px_0_0_0_var(--hr-green-bright)]"
+                    : "border-transparent hover:border-hr-border hover:bg-panel-raised/70"
                 }`}
               >
-                <span className={`font-mono text-sm ${TONE_CLASSES[badge.tone]}`}>{badge.symbol}</span>
-                <span className="font-mono text-xs text-hr-muted">#{t.id}</span>
-                <span className="truncate text-xs text-foreground/90">{t.subject}</span>
+                <span
+                  className={`dot ${badge.tone === "idle" ? "" : "dot-glow"} ${processing ? "dot-ping" : ""}`}
+                  style={{ "--dot": DOT_COLOR[badge.tone], fontSize: 9 } as React.CSSProperties}
+                />
+                <span className="font-mono text-[11px] text-hr-muted-dim">#{String(t.id).padStart(2, "0")}</span>
+                <span className={`truncate text-[13px] ${active ? "text-foreground" : "text-foreground/80"}`}>
+                  {t.subject}
+                </span>
+                <span className={`ml-auto shrink-0 font-mono text-[9px] uppercase tracking-wider ${TONE_TEXT[badge.tone]} ${processing ? "hr-pulse" : ""}`}>
+                  {badge.label}
+                </span>
               </button>
             </li>
           );
@@ -153,25 +182,34 @@ function QueuePanel({
 function CurrentTicketPanel({ ticket }: { ticket?: TicketView }) {
   if (!ticket) {
     return (
-      <section data-testid="current-ticket" className="grid min-h-0 place-items-center text-hr-muted">
+      <section data-testid="current-ticket" className="grid min-h-0 place-items-center font-mono text-sm text-hr-muted">
         Press Run to start
       </section>
     );
   }
   return (
-    <section data-testid="current-ticket" className="flex min-h-0 flex-col overflow-y-auto px-6 py-4">
-      <div className="flex items-baseline gap-3">
-        <span className="font-mono text-xs text-hr-muted">CURRENT TICKET #{ticket.id}</span>
+    <section data-testid="current-ticket" className="flex min-h-0 flex-col overflow-y-auto px-8 py-6">
+      <div className="rise-in" style={{ animationDelay: "60ms" }}>
+        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-hr-muted-dim">
+          Current Ticket · #{String(ticket.id).padStart(2, "0")}
+        </span>
+        <h2 className="mt-1.5 font-display text-[26px] font-semibold leading-[1.15] tracking-tight">
+          {ticket.subject}
+        </h2>
+        <div className="mt-3">
+          <CompanyChip company={ticket.company} />
+        </div>
       </div>
 
-      <h2 className="mt-1 text-lg font-semibold leading-snug">{ticket.subject}</h2>
-      <div className="mt-2">
-        <CompanyChip company={ticket.company} />
+      {/* Issue transcript */}
+      <div className="rise-in mt-5" style={{ animationDelay: "110ms" }}>
+        <div className="relative rounded-lg border border-hr-border bg-panel/60 p-4">
+          <span className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full bg-hr-border-bright" aria-hidden />
+          <p className="whitespace-pre-wrap pl-3 font-mono text-[13px] leading-relaxed text-foreground/85">
+            {ticket.issue}
+          </p>
+        </div>
       </div>
-
-      <p className="mt-4 whitespace-pre-wrap border-l-2 border-hr-border pl-3 font-mono text-sm leading-relaxed text-foreground/85">
-        {ticket.issue}
-      </p>
 
       {ticket.decision ? (
         <>
@@ -189,10 +227,11 @@ function CompanyChip({ company }: { company: TicketView["company"] }) {
   const isHR = company === "HackerRank";
   return (
     <span
-      className={`rounded px-2 py-0.5 font-mono text-[11px] ${
-        isHR ? "bg-hr-green text-black" : "border border-hr-slate text-hr-muted"
+      className={`inline-flex items-center gap-1.5 rounded px-2 py-1 font-mono text-[11px] ${
+        isHR ? "bg-hr-green/15 text-hr-green-bright ring-1 ring-inset ring-hr-green/30" : "text-hr-muted ring-1 ring-inset ring-hr-slate"
       }`}
     >
+      <span className="dot" style={{ "--dot": isHR ? "var(--hr-green-bright)" : "var(--hr-slate)", fontSize: 8 } as React.CSSProperties} />
       {company}
     </span>
   );
@@ -201,7 +240,7 @@ function CompanyChip({ company }: { company: TicketView["company"] }) {
 const RISK_TONE: Record<Risk, string> = {
   LOW: "text-hr-green-bright",
   MED: "text-hr-amber",
-  HIGH: "text-red-400",
+  HIGH: "text-hr-red",
 };
 
 function DecisionCard({ decision }: { decision: Decision }) {
@@ -209,24 +248,38 @@ function DecisionCard({ decision }: { decision: Decision }) {
   return (
     <div
       data-testid="decision-card"
-      className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-hr-border bg-panel-raised p-4 font-mono text-sm sm:grid-cols-4"
+      className="rise-in glass mt-6 rounded-xl border border-hr-border-bright p-5"
+      style={{ animationDelay: "160ms" }}
     >
-      <Field label="status">
-        <span className="text-hr-green-bright">{decision.status}</span>
-      </Field>
-      <Field label="request_type">{decision.request_type}</Field>
-      <Field label="product_area">{decision.product_area || "—"}</Field>
-      <Field label="risk">
-        <span className={RISK_TONE[decision.risk]}>{decision.risk}</span>
-      </Field>
-      <div className="col-span-2 sm:col-span-4">
-        <span className="text-[11px] uppercase tracking-wider text-hr-muted">confidence</span>
-        <div className="mt-1 flex items-center gap-2">
-          <span className="tracking-widest text-hr-green-bright">
-            {"▰".repeat(bars.filled)}
-            <span className="text-hr-slate">{"▱".repeat(bars.total - bars.filled)}</span>
-          </span>
-          <span className="text-foreground/80">{decision.confidence.toFixed(2)}</span>
+      <div className="mb-4 flex items-center gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-hr-muted-dim">Decision</span>
+        <span className="h-px flex-1 bg-hr-border" />
+      </div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+        <Field label="status">
+          <span className="text-hr-green-bright text-glow">{decision.status}</span>
+        </Field>
+        <Field label="request_type">{decision.request_type}</Field>
+        <Field label="product_area">{decision.product_area || "—"}</Field>
+        <Field label="risk">
+          <span className={`${RISK_TONE[decision.risk]} text-glow`}>{decision.risk}</span>
+        </Field>
+      </div>
+
+      <div className="mt-5">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-hr-muted-dim">confidence</span>
+          <span className="font-mono text-xs text-foreground/80">{decision.confidence.toFixed(2)}</span>
+        </div>
+        <div className="mt-2 flex gap-1.5" aria-hidden>
+          {Array.from({ length: bars.total }).map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 flex-1 rounded-full ${
+                i < bars.filled ? "bg-hr-green-bright shadow-[0_0_8px_-2px_var(--hr-green-bright)]" : "bg-hr-slate/40"
+              }`}
+            />
+          ))}
         </div>
       </div>
     </div>
@@ -236,8 +289,8 @@ function DecisionCard({ decision }: { decision: Decision }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-wider text-hr-muted">{label}</div>
-      <div className="mt-0.5 text-foreground">{children}</div>
+      <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-hr-muted-dim">{label}</div>
+      <div className="mt-1 font-mono text-sm text-foreground">{children}</div>
     </div>
   );
 }
@@ -245,24 +298,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ResponseBlock({ decision }: { decision: Decision }) {
   const escalated = decision.status === "escalated";
   return (
-    <div className="mt-5">
-      <div className="text-[11px] uppercase tracking-wider text-hr-muted">Response</div>
-      <p
-        className={`mt-1.5 whitespace-pre-wrap rounded-lg border p-4 text-sm leading-relaxed ${
-          escalated ? "border-hr-amber/40 bg-hr-amber/5" : "border-hr-border bg-panel"
-        }`}
-      >
-        {decision.response}
-      </p>
+    <div className="rise-in mt-6" style={{ animationDelay: "210ms" }}>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-hr-muted-dim">Response</span>
+        <span className="h-px flex-1 bg-hr-border" />
+      </div>
+      <div className={`relative overflow-hidden rounded-xl border p-5 ${escalated ? "border-hr-amber/35 bg-hr-amber/[0.04]" : "border-hr-border bg-panel/60"}`}>
+        <span
+          className={`absolute left-0 top-0 bottom-0 w-[3px] ${escalated ? "bg-hr-amber" : "bg-hr-green-bright"}`}
+          aria-hidden
+        />
+        <p className="whitespace-pre-wrap pl-3 text-[14px] leading-relaxed text-foreground/90">{decision.response}</p>
+      </div>
     </div>
   );
 }
 
 function ProcessingNote() {
   return (
-    <div className="mt-5 flex items-center gap-2 rounded-lg border border-hr-green/30 bg-hr-green/5 p-4 text-sm text-hr-muted">
-      <span className="hr-pulse text-hr-green-bright">▶</span>
-      Triaging this ticket… decision and response will appear here.
+    <div
+      className="rise-in mt-6 flex items-center gap-3 rounded-xl border border-hr-green/25 bg-hr-green/[0.04] p-5 text-sm text-hr-muted"
+      style={{ animationDelay: "160ms" }}
+    >
+      <span className="dot dot-glow dot-ping" style={{ "--dot": "var(--hr-green-bright)", fontSize: 12 } as React.CSSProperties} />
+      <span className="font-mono text-[13px]">Triaging this ticket… decision and response will stream in here.</span>
     </div>
   );
 }
@@ -271,29 +330,30 @@ function ProcessingNote() {
 
 function SourcesPanel({ ticket }: { ticket?: TicketView }) {
   return (
-    <aside data-testid="sources" className="flex min-h-0 flex-col border-l border-hr-border bg-panel">
+    <aside data-testid="sources" className="glass flex min-h-0 flex-col border-l border-hr-border">
       <PanelTitle>Retrieved sources</PanelTitle>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         {ticket && ticket.sources.length > 0 ? (
-          <ul className="space-y-1.5">
-            {ticket.sources.map((s) => (
-              <SourceRow key={s.articleId} source={s} />
+          <ul className="space-y-2">
+            {ticket.sources.map((s, i) => (
+              <SourceRow key={s.articleId} source={s} index={i} />
             ))}
           </ul>
         ) : (
-          <p className="px-1 py-2 text-xs text-hr-muted">No sources retrieved.</p>
+          <p className="px-1 py-2 font-mono text-xs text-hr-muted-dim">No sources retrieved.</p>
         )}
 
         {ticket && ticket.pipeline.length > 0 && (
           <>
-            <div className="mt-4 mb-1 px-1 text-[11px] uppercase tracking-wider text-hr-muted">
-              Pipeline
+            <div className="mt-6 mb-3 flex items-center gap-2 px-1">
+              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-hr-muted-dim">Pipeline</span>
+              <span className="h-px flex-1 bg-hr-border" />
             </div>
-            <ul className="space-y-1 font-mono text-xs">
+            <ol className="relative ml-1.5 border-l border-hr-border">
               {ticket.pipeline.map((step) => (
                 <PipelineRow key={step.stage} step={step} />
               ))}
-            </ul>
+            </ol>
           </>
         )}
       </div>
@@ -301,34 +361,46 @@ function SourcesPanel({ ticket }: { ticket?: TicketView }) {
   );
 }
 
-function SourceRow({ source }: { source: Source }) {
+function SourceRow({ source, index }: { source: Source; index: number }) {
+  const pct = Math.round(Math.min(1, Math.max(0, source.score)) * 100);
   return (
-    <li className="rounded-md border border-hr-border bg-panel-raised px-2.5 py-2">
-      <div className="flex items-center gap-2 font-mono text-xs">
-        <span className="text-hr-green-bright">▸ {source.score.toFixed(2)}</span>
-        <span className="ml-auto rounded bg-hr-slate/40 px-1.5 py-0.5 text-[10px] text-hr-muted">
+    <li
+      className="rise-in group rounded-lg border border-hr-border bg-panel-raised/60 px-3 py-2.5 transition-colors hover:border-hr-border-bright"
+      style={{ animationDelay: `${120 + index * 50}ms` }}
+    >
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-xs font-medium text-hr-green-bright">{source.score.toFixed(2)}</span>
+        <span className="ml-auto rounded bg-hr-slate/30 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-hr-muted">
           {source.category}
         </span>
       </div>
-      <div className="mt-1 text-xs leading-snug text-foreground/90">{source.title}</div>
+      {/* relevance micro-bar */}
+      <div className="mt-1.5 h-[3px] w-full overflow-hidden rounded-full bg-hr-slate/30" aria-hidden>
+        <span className="block h-full rounded-full bg-hr-green-bright/80 shadow-[0_0_6px_-1px_var(--hr-green-bright)]" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-2 text-[13px] leading-snug text-foreground/85">{source.title}</div>
     </li>
   );
 }
 
-const STEP_MARK: Record<PipelineStep["status"], { mark: string; cls: string }> = {
-  done: { mark: "✓", cls: "text-hr-green-bright" },
-  running: { mark: "▶", cls: "text-hr-green-bright hr-pulse" },
-  pending: { mark: "○", cls: "text-hr-slate" },
-  error: { mark: "✕", cls: "text-red-400" },
+const STEP_MARK: Record<PipelineStep["status"], { dot: string; ping: boolean; text: string }> = {
+  done: { dot: "var(--hr-green-bright)", ping: false, text: "text-foreground/85" },
+  running: { dot: "var(--hr-green-bright)", ping: true, text: "text-hr-green-bright" },
+  pending: { dot: "var(--hr-slate)", ping: false, text: "text-hr-muted-dim" },
+  error: { dot: "var(--hr-red)", ping: false, text: "text-hr-red" },
 };
 
 function PipelineRow({ step }: { step: PipelineStep }) {
   const m = STEP_MARK[step.status];
   return (
-    <li className="flex items-center gap-2">
-      <span className={m.cls}>{m.mark}</span>
-      <span className="text-foreground/85">{step.stage}</span>
-      {step.detail && <span className="ml-auto text-hr-muted">{step.detail}</span>}
+    <li className="relative flex items-center gap-2 py-1.5 pl-4 font-mono text-xs">
+      <span
+        className={`absolute -left-[5px] dot ${step.status === "pending" ? "" : "dot-glow"} ${m.ping ? "dot-ping" : ""}`}
+        style={{ "--dot": m.dot, fontSize: 9 } as React.CSSProperties}
+      />
+      <span className={m.text}>{step.stage}</span>
+      {step.status === "done" && <span className="text-hr-green-bright">✓</span>}
+      {step.detail && <span className="ml-auto text-hr-muted-dim">{step.detail}</span>}
     </li>
   );
 }
@@ -339,12 +411,13 @@ function JustificationFooter({ ticket }: { ticket?: TicketView }) {
   return (
     <footer
       data-testid="justification"
-      className="flex items-start gap-3 border-t border-hr-border bg-panel px-5 py-3 text-sm"
+      className="glass flex items-center gap-4 border-t border-hr-border px-6 py-3.5"
     >
-      <span className="mt-0.5 shrink-0 font-mono text-[11px] uppercase tracking-wider text-hr-muted">
+      <span className="flex shrink-0 items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-hr-muted-dim">
+        <span className="dot dot-glow" style={{ "--dot": "var(--hr-green-bright)", fontSize: 7 } as React.CSSProperties} />
         Justification
       </span>
-      <p className="leading-snug text-foreground/85">
+      <p className="text-[13px] leading-snug text-foreground/80">
         {ticket?.decision ? ticket.decision.justification : "—"}
       </p>
     </footer>
@@ -355,8 +428,10 @@ function JustificationFooter({ ticket }: { ticket?: TicketView }) {
 
 function PanelTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-b border-hr-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-hr-muted">
-      {children}
+    <div className="flex items-center gap-2 border-b border-hr-border px-4 py-3">
+      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-hr-muted">
+        {children}
+      </span>
     </div>
   );
 }
