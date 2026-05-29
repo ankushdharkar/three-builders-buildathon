@@ -42,18 +42,36 @@ describe("container — default (no flags) returns fakes", () => {
   });
 });
 
-describe("container — flag on but real module absent falls back to fake", () => {
-  it("does not throw for modules not built yet (llm/embedder/retrieval/pipeline)", async () => {
+describe("container — flag on but module unconstructable falls back to fake", () => {
+  it("does not throw when a real factory can't construct (llm/embedder missing keys)", async () => {
     process.env.REAL_LLM = "1";
     process.env.REAL_EMBEDDER = "1";
-    process.env.REAL_RETRIEVAL = "1";
-    process.env.REAL_PIPELINE = "1";
-    // ./llm/client, ./retrieval/retrieve, ./pipeline/run don't exist yet —
-    // the container must try/catch and return the fakes.
+    // ./llm/client exists (004) but its factories throw without API keys set, so the
+    // container catches and returns the fakes.
     expect(await getLlm()).toBe(fakes.llm);
     expect(await getEmbedder()).toBe(fakes.embedder);
-    expect(await getRetriever()).toBe(fakes.retriever);
-    expect(await getPipeline()).toBe(fakes.pipeline);
+  });
+});
+
+describe("container — real module present is used (REAL_PIPELINE, landed by 005)", () => {
+  it("returns the real Pipeline (not the fake) when REAL_PIPELINE is on", async () => {
+    process.env.REAL_PIPELINE = "1";
+    const pipeline = await getPipeline();
+    // ./pipeline/run now exists → real createPipeline (over fake retrieve+llm deps),
+    // not the canned fake pipeline.
+    expect(pipeline).not.toBe(fakes.pipeline);
+    expect(typeof pipeline.run).toBe("function");
+  });
+});
+
+describe("container — real module present is used (REAL_RETRIEVAL, landed by 003)", () => {
+  it("returns the real Retriever (not the fake) when REAL_RETRIEVAL is on", async () => {
+    process.env.REAL_RETRIEVAL = "1";
+    const retriever = await getRetriever();
+    // ./retrieval/retrieve now exists → real createRetriever (over fake corpus+embedder),
+    // not the canned fake retriever.
+    expect(retriever).not.toBe(fakes.retriever);
+    expect(typeof retriever.retrieve).toBe("function");
   });
 });
 
