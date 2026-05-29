@@ -9,8 +9,15 @@ being processed live. See `~/Workspaces/output/04-architecture.md` for the full 
 
 - **Next.js 16** (App Router) + **React 19** + **TypeScript 5**
 - **Tailwind CSS v4** (CSS-first config via `@tailwindcss/postcss`)
-- **Vitest** for unit tests
+- **Vitest** for unit tests (Node env) + **Testing Library / jsdom** for component tests
 - Package manager: **pnpm**
+
+## Working method — TDD (required)
+
+Per repo `CLAUDE.md` we develop **test-first**: write the failing test, watch it fail
+(red), implement the minimum to pass (green), then refactor. Pure logic is tested in
+the Vitest `node` environment; React components opt into `jsdom` per-file with
+`// @vitest-environment jsdom` at the top. Keep `pnpm test` green before every commit.
 
 > ⚠️ **Next.js 16 is a recent major with breaking changes** vs. older Next. When in
 > doubt about an API, check `node_modules/next/dist/docs/` rather than assuming v13/14
@@ -55,8 +62,17 @@ under `src/agent/` imports nothing UI/Next-specific, so it runs headless and rep
 ```
 code/
 ├── src/
-│   ├── app/            # Next.js App Router — Triage Console UI
+│   ├── app/            # Next.js App Router — page wires Dashboard to mock data
+│   ├── dashboard/      # Triage Console UI: Dashboard.tsx + summary/format logic (+ tests)
+│   ├── mock/           # MOCK_TICKETS fixture (drop-in replaced by the live agent later)
 │   └── agent/          # headless agent core (no UI imports)
+│       ├── types.ts    # shared domain contract (Ticket, Decision, sources, pipeline)
 │       └── csv.ts      # RFC-4180 CSV serialization for output.csv
 └── ...                 # config: next, tsconfig, tailwind/postcss, eslint, vitest
 ```
+
+The **Triage Console** (3-column: queue ▸ current ticket + decision/response ▸
+sources + pipeline, over a justification footer) currently renders off `MOCK_TICKETS`.
+Selection is the only local state; all tallies/badges are derived by the pure,
+tested functions in `src/dashboard/`. Swapping mock → live agent results is a
+prop-level change.

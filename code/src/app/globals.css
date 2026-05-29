@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
+/*
+ * HackerRank-branded Triage Console theme (D2): green on near-black surfaces.
+ * Greens = success/replied, amber = escalate, slate-grey = invalid/idle, red = errors.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0f0d; /* near-black with a green-slate cast */
+  --foreground: #e8efe9;
+  --panel: #111815;
+  --panel-raised: #16201b;
+  --border: #233029;
+  --muted: #8aa093;
+  --hr-green: #1ba94c;
+  --hr-green-bright: #2ec866;
+  --hr-amber: #f0a92e;
+  --hr-slate: #39424e;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-panel: var(--panel);
+  --color-panel-raised: var(--panel-raised);
+  --color-hr-border: var(--border);
+  --color-hr-muted: var(--muted);
+  --color-hr-green: var(--hr-green);
+  --color-hr-green-bright: var(--hr-green-bright);
+  --color-hr-amber: var(--hr-amber);
+  --color-hr-slate: var(--hr-slate);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+@keyframes hr-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.hr-pulse {
+  animation: hr-pulse 1.1s ease-in-out infinite;
 }
