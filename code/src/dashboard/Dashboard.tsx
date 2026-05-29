@@ -365,9 +365,11 @@ function DecisionCard({ decision }: { decision: Decision }) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-hr-muted-dim">{label}</div>
-      <div className="mt-1 font-mono text-sm text-foreground">{children}</div>
+      <div data-testid={`field-${label}`} className="mt-1 break-words font-mono text-sm text-foreground">
+        {children}
+      </div>
     </div>
   );
 }
