@@ -51,10 +51,20 @@ the agent decides reply-with-out-of-scope vs escalate. Use
 
 - **UI = Triage Console, 3-column**: queue (left) ▸ current ticket + decision/response
   (center) ▸ retrieved sources + live pipeline (right) ▸ justification footer.
-- **LLM provider**: leaning **OpenRouter**, kept flexible.
+- **LLM provider**: **OpenRouter for chat + OpenAI for embeddings** (D6). Strong
+  flagship chat model, **temp 0 + fixed seed**; pin a model that supports
+  `json_schema`/tool-calling through OpenRouter. Keys: `OPENROUTER_API_KEY` (chat),
+  `OPENAI_API_KEY` (embeddings). All behind a thin `llm/client.ts` (model swappable).
 - **Stack**: **Next.js + TypeScript** (all-in-one). Agent = shared TS module +
   batch CLI for `output.csv`; UI streams the same agent. Chosen for UI-polish
   ceiling + native streaming + single language (we're strong in TS).
+- **`product_area`** (D8): **no spec enum exists** (only `status` + `request_type` are
+  enumerated). Emit from a **corpus-native closed set** — `screen`, `interviews`,
+  `chakra`, `library`, `integrations`, `settings`, `engage`, `skillup`, `community`,
+  `general-help` — plus `conversation_management` (out-of-scope/meta) and empty
+  (no-area escalation). **Derivation = hybrid vote** (retrieval category + LLM,
+  reconciled). **Open-set:** never invent an emitted value; a detected new area goes
+  into `Decision.suggested_product_area {value, reason}` and routes to human review (B1).
 - **Retrieval**: **hybrid BM25 + online embeddings (OpenAI `text-embedding-3-small`),
   fused via RRF**; article-level, brute-force cosine (no vector DB), cached index.
   ("Corpus-only" = grounding/answers must come from `data/`; it does **not** forbid
@@ -72,8 +82,9 @@ the agent decides reply-with-out-of-scope vs escalate. Use
 - UI must **visibly process tickets** (queue → current → decision → response), not a
   terminal-only script and not a static mockup.
 - **Deterministic where possible**: seed any sampling, pin dependencies.
-- Secrets from **env vars only** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …); never
-  hardcode. `.env` is gitignored.
+- Secrets from **env vars only** (`OPENROUTER_API_KEY` for chat, `OPENAI_API_KEY`
+  for embeddings, …); never hardcode. `.env` is gitignored. Add `OPENROUTER_API_KEY`
+  to `.env.example` when scaffolding.
 - Don't rename the `code/` entry point or change its contract (per `AGENTS.md` §6).
 - Don't commit `~/hackerrank_buildathon/log.txt` during the build; it's copied to
   `submission/log.txt` only at submission.
@@ -94,6 +105,8 @@ Scored across five dimensions — make decisions with all of them in mind:
 
 - [x] Pick stack → **Next.js + TypeScript** (see §2).
 - [x] Pick retrieval approach → **hybrid BM25 + OpenAI online embeddings (RRF)** (see §2).
+- [x] Pick chat LLM → **OpenRouter chat + OpenAI embeds, flagship + temp 0/seed** (see §2).
+- [x] Confirm `product_area` taxonomy (T5) → **D8: corpus-native closed set + hybrid vote + open-set suggestion** (see §2).
 - [ ] Decide demo run mode (auto-run vs manual step vs both).
 - [ ] Build order: UI spec → scaffold → retrieval → reasoning + routing → run on
       `support_tickets.csv` → write `output.csv`.
