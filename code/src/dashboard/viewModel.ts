@@ -9,7 +9,7 @@
  * renders, so mock data and live-agent data render through the same components.
  */
 
-import type { Decision, Source, Stage, Ticket } from "../agent/types";
+import type { Decision, ProductArea, Source, Stage, Ticket } from "../agent/types";
 
 /** Per-ticket lifecycle state shown in the queue. */
 export type QueueState =
@@ -44,4 +44,19 @@ export interface TicketView {
   /** Retrieved sources, available even while still processing (before a decision). */
   sources: Source[];
   pipeline: PipelineStep[];
+}
+
+/**
+ * The full corpus article behind a retrieved `Source`, shown in the Source detail
+ * drawer (D12). The drawer proves grounding, so it needs the article `body` plus the
+ * cited `snippet` to highlight. Mock-resolved today (`mockDocs.ts`); swaps to the real
+ * corpus loader (`CorpusDoc`) once retrieval is wired live — same shape, drop-in.
+ */
+export interface SourceDoc {
+  articleId: string;
+  title: string;
+  category: ProductArea | string;
+  url?: string;
+  body: string;
+  snippet?: string;
 }

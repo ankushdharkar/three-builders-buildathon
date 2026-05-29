@@ -81,6 +81,26 @@ export interface TicketSafety {
   fields: { issue: SafetyFlags; subject: SafetyFlags; company: SafetyFlags };
 }
 
+/**
+ * Urgency band — how time-pressured / impactful the request is for the user. Modeled
+ * separately from `risk` (D12): the problem statement asks the agent to assess urgency
+ * AND risk. Urgency = user impact/deadline pressure; risk = sensitivity/blast-radius of
+ * acting. A blocked candidate mid-assessment is high-urgency / low-risk; a bulk PII
+ * deletion is low-urgency / high-risk. Used to sort the human-review queue (B1).
+ */
+export type Urgency = "LOW" | "MED" | "HIGH";
+
+/**
+ * One detected sub-request within a ticket (D12). A row may bundle multiple requests;
+ * the agent still emits a single synthesized 5-column row, but records the decomposition
+ * here so the UI can show that every intent was considered (not half-handled).
+ */
+export interface DetectedRequest {
+  summary: string;
+  request_type: RequestType;
+  product_area: ProductArea;
+}
+
 /** One input ticket from `support_tickets.csv` (id is the 1-based row index). */
 export interface Ticket {
   id: number;
@@ -120,6 +140,10 @@ export interface Decision {
   /** Concise, corpus-traceable explanation of the decision (free-form). */
   justification: string;
   risk: Risk;
+  /** Urgency band (D12): user impact / time-pressure, distinct from `risk`. Optional. */
+  urgency?: Urgency;
+  /** Detected sub-requests when a ticket bundles more than one ask (D12). Optional. */
+  requests?: DetectedRequest[];
   /** Model confidence in [0, 1]; gates human review (B1). */
   confidence: number;
   /** Open-set / uncertainty hook (B1): route to a human-review queue. */

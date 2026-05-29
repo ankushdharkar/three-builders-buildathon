@@ -50,4 +50,30 @@ describe("<Dashboard />", () => {
     const current = screen.getByTestId("current-ticket");
     expect(within(current).queryByTestId("decision-card")).toBeNull();
   });
+
+  it("shows urgency alongside risk in the decision card (D12)", () => {
+    render(<Dashboard tickets={MOCK_TICKETS} />);
+    fireEvent.click(screen.getByRole("button", { name: /Ticket #1:/ }));
+    const card = screen.getByTestId("decision-card");
+    expect(card).toHaveTextContent("urgency");
+    expect(card).toHaveTextContent("risk");
+  });
+
+  it("surfaces detected sub-requests for a bundled ticket (D12)", () => {
+    render(<Dashboard tickets={MOCK_TICKETS} />);
+    fireEvent.click(screen.getByRole("button", { name: /Ticket #2/ }));
+    const decomposition = screen.getByTestId("decomposition");
+    // The refund + data-deletion ticket decomposes into two requests.
+    expect(within(decomposition).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("opens the source drawer with the article body when a source is clicked (D12)", () => {
+    render(<Dashboard tickets={MOCK_TICKETS} />);
+    fireEvent.click(screen.getByRole("button", { name: /Ticket #1:/ }));
+    const sources = screen.getByTestId("sources");
+    fireEvent.click(within(sources).getByRole("button", { name: /System Check/ }));
+
+    const drawer = screen.getByTestId("source-drawer");
+    expect(within(drawer).getByText(/System Check verifies the candidate's browser/)).toBeInTheDocument();
+  });
 });

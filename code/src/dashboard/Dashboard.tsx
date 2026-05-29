@@ -4,8 +4,10 @@ import { useState } from "react";
 import type { BadgeTone } from "./format";
 import { confidenceBars, statusBadge } from "./format";
 import { summarize } from "./summary";
-import type { Decision, Risk, Source } from "../agent/types";
-import type { PipelineStep, TicketView } from "./viewModel";
+import { SourceDrawer } from "./SourceDrawer";
+import { resolveMockSourceDoc } from "./mockDocs";
+import type { Decision, DetectedRequest, Risk, Source, Urgency } from "../agent/types";
+import type { PipelineStep, SourceDoc, TicketView } from "./viewModel";
 
 /**
  * The Triage Console (D1) — "Signal" treatment: a mission-control three-column
@@ -14,11 +16,20 @@ import type { PipelineStep, TicketView } from "./viewModel";
  * renders identically from mock data today and from the live agent later. Selection is
  * the only local state; everything else is derived.
  */
-export function Dashboard({ tickets }: { tickets: TicketView[] }) {
+export function Dashboard({
+  tickets,
+  resolveSourceDoc = resolveMockSourceDoc,
+}: {
+  tickets: TicketView[];
+  /** Maps a clicked source to the article shown in the drawer; mock today, live later. */
+  resolveSourceDoc?: (source: Source) => SourceDoc | null;
+}) {
   // Default to the ticket currently being worked, else the first in the queue.
   const initial = tickets.find((t) => t.state === "processing") ?? tickets[0];
   const [selectedId, setSelectedId] = useState<number | undefined>(initial?.id);
   const selected = tickets.find((t) => t.id === selectedId) ?? initial;
+
+  const [openDoc, setOpenDoc] = useState<SourceDoc | null>(null);
 
   const summary = summarize(tickets);
 
@@ -28,9 +39,10 @@ export function Dashboard({ tickets }: { tickets: TicketView[] }) {
       <div className="grid min-h-0 flex-1 grid-cols-[clamp(240px,23%,320px)_1fr_clamp(248px,27%,360px)]">
         <QueuePanel tickets={tickets} selectedId={selected?.id} onSelect={setSelectedId} />
         <CurrentTicketPanel ticket={selected} />
-        <SourcesPanel ticket={selected} />
+        <SourcesPanel ticket={selected} onOpenSource={(s) => setOpenDoc(resolveSourceDoc(s))} />
       </div>
       <JustificationFooter ticket={selected} />
+      <SourceDrawer doc={openDoc} onClose={() => setOpenDoc(null)} />
     </div>
   );
 }
@@ -213,6 +225,9 @@ function CurrentTicketPanel({ ticket }: { ticket?: TicketView }) {
 
       {ticket.decision ? (
         <>
+          {ticket.decision.requests && ticket.decision.requests.length > 1 && (
+            <Decomposition requests={ticket.decision.requests} />
+          )}
           <DecisionCard decision={ticket.decision} />
           <ResponseBlock decision={ticket.decision} />
         </>
@@ -220,6 +235,43 @@ function CurrentTicketPanel({ ticket }: { ticket?: TicketView }) {
         <ProcessingNote />
       )}
     </section>
+  );
+}
+
+/**
+ * Multi-request decomposition (D12): a ticket may bundle several asks. The agent emits
+ * one synthesized decision but lists the detected sub-requests here, so a reviewer can
+ * see every intent was considered rather than silently dropped.
+ */
+function Decomposition({ requests }: { requests: DetectedRequest[] }) {
+  return (
+    <div className="rise-in mt-5" style={{ animationDelay: "130ms" }}>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-hr-muted-dim">
+          Detected requests · {requests.length}
+        </span>
+        <span className="h-px flex-1 bg-hr-border" />
+      </div>
+      <ul data-testid="decomposition" className="space-y-1.5">
+        {requests.map((r, i) => (
+          <li
+            key={i}
+            className="flex items-center gap-2.5 rounded-lg border border-hr-border bg-panel/60 px-3 py-2"
+          >
+            <span className="font-mono text-[11px] text-hr-muted-dim">{i + 1}</span>
+            <span className="flex-1 text-[13px] text-foreground/85">{r.summary}</span>
+            <span className="rounded bg-hr-slate/30 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-hr-muted">
+              {r.request_type}
+            </span>
+            {r.product_area && (
+              <span className="rounded bg-hr-slate/30 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-hr-muted">
+                {r.product_area}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -243,6 +295,13 @@ const RISK_TONE: Record<Risk, string> = {
   HIGH: "text-hr-red",
 };
 
+// Urgency is user impact / time-pressure (distinct from risk): higher = more pressing.
+const URGENCY_TONE: Record<Urgency, string> = {
+  LOW: "text-hr-muted",
+  MED: "text-hr-amber",
+  HIGH: "text-hr-amber",
+};
+
 function DecisionCard({ decision }: { decision: Decision }) {
   const bars = confidenceBars(decision.confidence);
   return (
@@ -255,7 +314,7 @@ function DecisionCard({ decision }: { decision: Decision }) {
         <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-hr-muted-dim">Decision</span>
         <span className="h-px flex-1 bg-hr-border" />
       </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
         <Field label="status">
           <span className="text-hr-green-bright text-glow">{decision.status}</span>
         </Field>
@@ -263,6 +322,13 @@ function DecisionCard({ decision }: { decision: Decision }) {
         <Field label="product_area">{decision.product_area || "—"}</Field>
         <Field label="risk">
           <span className={`${RISK_TONE[decision.risk]} text-glow`}>{decision.risk}</span>
+        </Field>
+        <Field label="urgency">
+          {decision.urgency ? (
+            <span className={URGENCY_TONE[decision.urgency]}>{decision.urgency}</span>
+          ) : (
+            "—"
+          )}
         </Field>
       </div>
 
@@ -328,7 +394,13 @@ function ProcessingNote() {
 
 /* ── Right: Sources + Pipeline ───────────────────────────────────────────── */
 
-function SourcesPanel({ ticket }: { ticket?: TicketView }) {
+function SourcesPanel({
+  ticket,
+  onOpenSource,
+}: {
+  ticket?: TicketView;
+  onOpenSource: (source: Source) => void;
+}) {
   return (
     <aside data-testid="sources" className="glass flex min-h-0 flex-col border-l border-hr-border">
       <PanelTitle>Retrieved sources</PanelTitle>
@@ -336,7 +408,7 @@ function SourcesPanel({ ticket }: { ticket?: TicketView }) {
         {ticket && ticket.sources.length > 0 ? (
           <ul className="space-y-2">
             {ticket.sources.map((s, i) => (
-              <SourceRow key={s.articleId} source={s} index={i} />
+              <SourceRow key={s.articleId} source={s} index={i} onOpen={onOpenSource} />
             ))}
           </ul>
         ) : (
@@ -361,24 +433,41 @@ function SourcesPanel({ ticket }: { ticket?: TicketView }) {
   );
 }
 
-function SourceRow({ source, index }: { source: Source; index: number }) {
+function SourceRow({
+  source,
+  index,
+  onOpen,
+}: {
+  source: Source;
+  index: number;
+  onOpen: (source: Source) => void;
+}) {
   const pct = Math.round(Math.min(1, Math.max(0, source.score)) * 100);
   return (
-    <li
-      className="rise-in group rounded-lg border border-hr-border bg-panel-raised/60 px-3 py-2.5 transition-colors hover:border-hr-border-bright"
-      style={{ animationDelay: `${120 + index * 50}ms` }}
-    >
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-xs font-medium text-hr-green-bright">{source.score.toFixed(2)}</span>
-        <span className="ml-auto rounded bg-hr-slate/30 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-hr-muted">
-          {source.category}
-        </span>
-      </div>
-      {/* relevance micro-bar */}
-      <div className="mt-1.5 h-[3px] w-full overflow-hidden rounded-full bg-hr-slate/30" aria-hidden>
-        <span className="block h-full rounded-full bg-hr-green-bright/80 shadow-[0_0_6px_-1px_var(--hr-green-bright)]" style={{ width: `${pct}%` }} />
-      </div>
-      <div className="mt-2 text-[13px] leading-snug text-foreground/85">{source.title}</div>
+    <li className="rise-in" style={{ animationDelay: `${120 + index * 50}ms` }}>
+      <button
+        type="button"
+        aria-label={`Source: ${source.title}`}
+        onClick={() => onOpen(source)}
+        className="group w-full rounded-lg border border-hr-border bg-panel-raised/60 px-3 py-2.5 text-left transition-colors hover:border-hr-border-bright hover:bg-panel-raised"
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs font-medium text-hr-green-bright">{source.score.toFixed(2)}</span>
+          <span className="ml-auto rounded bg-hr-slate/30 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-hr-muted">
+            {source.category}
+          </span>
+        </div>
+        {/* relevance micro-bar */}
+        <div className="mt-1.5 h-[3px] w-full overflow-hidden rounded-full bg-hr-slate/30" aria-hidden>
+          <span className="block h-full rounded-full bg-hr-green-bright/80 shadow-[0_0_6px_-1px_var(--hr-green-bright)]" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="mt-2 flex items-center gap-1.5 text-[13px] leading-snug text-foreground/85">
+          <span className="flex-1">{source.title}</span>
+          <span className="shrink-0 font-mono text-[10px] text-hr-muted-dim opacity-0 transition-opacity group-hover:opacity-100">
+            view ↗
+          </span>
+        </div>
+      </button>
     </li>
   );
 }

@@ -1,10 +1,12 @@
 import type {
   Decision,
+  DetectedRequest,
   ProductArea,
   RequestType,
   Risk,
   Source,
   Status,
+  Urgency,
 } from "../agent/types";
 import type { PipelineStep, QueueState, TicketView } from "../dashboard/viewModel";
 
@@ -40,6 +42,8 @@ interface DecidedSpec {
   product_area: ProductArea;
   confidence: number;
   risk: Risk;
+  urgency?: Urgency;
+  requests?: DetectedRequest[];
   response: string;
   justification: string;
   sources: Source[];
@@ -53,6 +57,8 @@ function decided(s: DecidedSpec): TicketView {
     response: s.response,
     justification: s.justification,
     risk: s.risk,
+    urgency: s.urgency,
+    requests: s.requests,
     confidence: s.confidence,
     sources: s.sources,
   };
@@ -81,6 +87,7 @@ export const MOCK_TICKETS: TicketView[] = [
     product_area: "screen",
     confidence: 0.86,
     risk: "LOW",
+    urgency: "HIGH",
     response:
       "This is usually a browser/extension conflict. Ask the candidate to run the System Check, disable ad-blockers, and retry in an incognito window or a supported browser (latest Chrome/Edge). If the editor still doesn't load, share the failed System Check report and we'll extend the deadline.",
     justification:
@@ -103,6 +110,11 @@ export const MOCK_TICKETS: TicketView[] = [
     product_area: "settings",
     confidence: 0.79,
     risk: "HIGH",
+    urgency: "MED",
+    requests: [
+      { summary: "Process a full refund to the card on file", request_type: "product_issue", product_area: "settings" },
+      { summary: "Permanently delete all candidate PII (GDPR)", request_type: "product_issue", product_area: "settings" },
+    ],
     response:
       "I've escalated this to our Trust & Billing team. Billing refunds and GDPR/data-deletion requests require identity verification and an account owner's authorization, so a specialist will follow up by email with the formal process.",
     justification:
@@ -124,6 +136,7 @@ export const MOCK_TICKETS: TicketView[] = [
     product_area: "interviews",
     confidence: 0.74,
     risk: "LOW",
+    urgency: "LOW",
     response:
       "Thanks for the suggestion. Today Interviews supports GitHub import for bringing in candidate code; Bitbucket isn't supported yet. I've logged this as a feature request with our product team. In the meantime you can paste a repo zip or share files directly in the CodePair session.",
     justification:
@@ -145,6 +158,7 @@ export const MOCK_TICKETS: TicketView[] = [
     product_area: "conversation_management",
     confidence: 0.95,
     risk: "LOW",
+    urgency: "LOW",
     response:
       "This message doesn't appear to be a HackerRank support request, so there's nothing for us to action here. If you do have a HackerRank question, reply with details and we'll be glad to help.",
     justification:
@@ -163,6 +177,7 @@ export const MOCK_TICKETS: TicketView[] = [
     product_area: "screen",
     confidence: 0.62,
     risk: "MED",
+    urgency: "HIGH",
     response:
       "Changing a qualifying score does update pass/fail flags, but a retroactive change on a live test affecting an offer decision needs a specialist to audit the score history for your specific test. I've escalated this with the test details so our team can confirm exactly what changed.",
     justification:
@@ -184,6 +199,7 @@ export const MOCK_TICKETS: TicketView[] = [
     product_area: "settings",
     confidence: 0.88,
     risk: "LOW",
+    urgency: "LOW",
     response:
       "From Team Settings, invite each colleague by email and assign them a Reviewer (read-only) role — Reviewers can open candidate reports but can't edit tests or settings. They'll get an email to set a password and join your team.",
     justification:
