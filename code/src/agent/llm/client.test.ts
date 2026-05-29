@@ -25,7 +25,7 @@ vi.mock("openai", () => ({
   },
 }));
 
-import { createEmbedder, createLlm } from "./client";
+import { createEmbedder, createLlm, MAX_BATCH_COUNT, MAX_INPUT_CHARS } from "./client";
 import { CHAT_MODEL, EMBEDDING_MODEL, SEED } from "./models";
 
 /** Build an async-iterable streamed chat response from string deltas. */
@@ -155,6 +155,32 @@ describe("createEmbedder — embeddings (OpenRouter)", () => {
     const embedder = createEmbedder();
     expect(await embedder.embed([])).toEqual([]);
     expect(embeddingsCreate).not.toHaveBeenCalled();
+  });
+
+  it("batches large input into multiple requests and concatenates in order", async () => {
+    embeddingsCreate.mockImplementation((req: { input: string[] }) =>
+      Promise.resolve({ data: req.input.map(() => ({ embedding: [1] })) }),
+    );
+    const embedder = createEmbedder();
+    const n = MAX_BATCH_COUNT * 2 + 5; // forces 3 count-limited requests
+    const vecs = await embedder.embed(Array.from({ length: n }, (_, i) => `doc ${i}`));
+    expect(vecs).toHaveLength(n);
+    expect(embeddingsCreate).toHaveBeenCalledTimes(3);
+  });
+
+  it("clips an oversized input to MAX_INPUT_CHARS before sending (avoids the bodyless 200)", async () => {
+    embeddingsCreate.mockImplementation((req: { input: string[] }) =>
+      Promise.resolve({ data: req.input.map(() => ({ embedding: [0] })) }),
+    );
+    const embedder = createEmbedder();
+    await embedder.embed(["x".repeat(MAX_INPUT_CHARS * 3)]);
+    expect(embeddingsCreate.mock.calls[0][0].input[0].length).toBe(MAX_INPUT_CHARS);
+  });
+
+  it("throws an actionable error when the response has no data array (so the retriever falls back)", async () => {
+    embeddingsCreate.mockResolvedValue({ data: undefined });
+    const embedder = createEmbedder();
+    await expect(embedder.embed(["a", "b"])).rejects.toThrow(/malformed|no data array/i);
   });
 
   it("throws a clear error (no key leak) when OPENROUTER_API_KEY is missing", () => {

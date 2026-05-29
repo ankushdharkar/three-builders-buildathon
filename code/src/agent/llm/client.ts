@@ -104,10 +104,22 @@ export function createLlm(opts?: LlmOptions): LlmClient {
   };
 }
 
+/** Per-input character cap (~text-embedding-3-small's 8191-token limit; ample for retrieval). */
+export const MAX_INPUT_CHARS = 8_000;
+/** Soft char budget per request — keeps a batch well under the provider's per-call limit. */
+export const MAX_BATCH_CHARS = 80_000;
+/** Hard cap on inputs per request. */
+export const MAX_BATCH_COUNT = 96;
+
 /**
  * Real embedder backed by OpenRouter's OpenAI-compatible embeddings endpoint
  * (`openai/text-embedding-3-small`, 1536-dim). Uses the same `OPENROUTER_API_KEY` as
  * chat — no separate OpenAI key. Returns one vector per input, preserving order.
+ *
+ * Inputs are clipped (per-doc) and **batched** by a char budget: sending the whole
+ * 436-article corpus (~3.7M chars) in one request makes OpenRouter return a 200 with no
+ * `data` array, which used to crash on `.map`. We also **guard the response shape** so a
+ * bad payload throws an actionable error (the retriever then degrades to BM25-only).
  */
 export function createEmbedder(opts?: LlmOptions): Embedder {
   const apiKey = opts?.apiKey ?? requireEnv("OPENROUTER_API_KEY");
@@ -117,8 +129,33 @@ export function createEmbedder(opts?: LlmOptions): Embedder {
   return {
     async embed(texts: string[]): Promise<number[][]> {
       if (texts.length === 0) return [];
-      const res = await client.embeddings.create({ model, input: texts });
-      return res.data.map((d) => d.embedding as number[]);
+      const clipped = texts.map((t) => (t.length > MAX_INPUT_CHARS ? t.slice(0, MAX_INPUT_CHARS) : t));
+
+      const out: number[][] = [];
+      for (let i = 0; i < clipped.length; ) {
+        // Greedily pack a batch up to the count/char budget (always ≥1 input).
+        const batch: string[] = [];
+        let chars = 0;
+        while (
+          i < clipped.length &&
+          batch.length < MAX_BATCH_COUNT &&
+          (batch.length === 0 || chars + clipped[i].length <= MAX_BATCH_CHARS)
+        ) {
+          chars += clipped[i].length;
+          batch.push(clipped[i]);
+          i++;
+        }
+
+        const res = await client.embeddings.create({ model, input: batch });
+        if (!res || !Array.isArray(res.data) || res.data.length !== batch.length) {
+          throw new Error(
+            `Embeddings response malformed for model "${model}" (expected ${batch.length} ` +
+              `vectors, got ${Array.isArray(res?.data) ? res.data.length : "no data array"}).`,
+          );
+        }
+        for (const d of res.data) out.push(d.embedding as number[]);
+      }
+      return out;
     },
   };
 }
