@@ -1,104 +1,108 @@
 /**
- * Shared domain types for the support-triage agent and its UI.
+ * Canonical data contract for the support-triage agent.
  *
- * These mirror the output contract in `CLAUDE.md` §1 (the five graded columns) plus
- * the extra signals the Triage Console renders (sources, pipeline, confidence/risk).
- * They live in the headless agent core so the batch CLI, the live agent, and the UI
- * all speak one vocabulary. The mock data layer produces values of exactly these
- * types, so swapping mock → live agent later is a drop-in change.
+ * This is the single source of truth (build prompt 001 / `04-architecture.md`) that
+ * the retrieval, LLM, pipeline, batch CLI, streaming API, and UI all import. Field
+ * names on `Decision` are the snake_case graded output columns (`status`,
+ * `request_type`, `product_area`, …) so the agent core and the output CSV speak one
+ * vocabulary with no mapping layer in between.
+ *
+ * UI-only view-model types (queue state, run state, per-step render status) live in
+ * `src/dashboard/viewModel.ts`, not here — this module stays headless and importable
+ * from Node-only code with no React/Next dependency.
  */
 
-/** Graded enum: final routing decision for a ticket (`AGENTS.md` / spec). */
-export type TicketStatus = "replied" | "escalated";
+/**
+ * `product_area` closed set (D8). No spec enum exists for this column, so we emit
+ * HackerRank's own corpus-native top-level categories, plus `conversation_management`
+ * (out-of-scope / meta) and `''` (no-area escalation). Never emit a value outside
+ * this set — a detected new area surfaces via `Decision.suggested_product_area` and
+ * routes to human review (B1).
+ */
+export const PRODUCT_AREAS = [
+  "screen",
+  "interviews",
+  "chakra",
+  "library",
+  "integrations",
+  "settings",
+  "engage",
+  "skillup",
+  "community",
+  "general-help",
+  "conversation_management",
+  "",
+] as const;
+
+export type ProductArea = (typeof PRODUCT_AREAS)[number];
+
+/** Runtime guard for the closed set — used when reconciling LLM/retrieval votes. */
+export function isProductArea(value: unknown): value is ProductArea {
+  return (
+    typeof value === "string" &&
+    (PRODUCT_AREAS as readonly string[]).includes(value)
+  );
+}
+
+/** Graded enum: final routing decision. */
+export type Status = "replied" | "escalated";
 
 /** Graded enum: the kind of request a ticket represents. */
 export type RequestType = "product_issue" | "feature_request" | "bug" | "invalid";
 
-/**
- * Corpus-native `product_area` closed set (D8) plus the meta/out-of-scope value and
- * the empty (no-area) escalation case. Never invent a value outside this union; a
- * detected new area surfaces via `Decision.suggestedProductArea` instead.
- */
-export type ProductArea =
-  | "screen"
-  | "interviews"
-  | "chakra"
-  | "library"
-  | "integrations"
-  | "settings"
-  | "engage"
-  | "skillup"
-  | "community"
-  | "general-help"
-  | "conversation_management"
-  | "";
+/** Risk band from the risk-check step; gates escalation (guardrails). */
+export type Risk = "LOW" | "MED" | "HIGH";
 
-/** Risk band from the risk-check pipeline step; gates escalation (guardrails). */
-export type RiskLevel = "LOW" | "MED" | "HIGH";
-
-/** Per-ticket lifecycle state as it moves through the queue/pipeline. */
-export type QueueState =
-  | "queued"
-  | "processing"
-  | "replied"
-  | "escalated"
-  | "invalid";
-
-/** Overall run state shown in the header (D9 auto-run; controls pending T1). */
-export type RunState = "IDLE" | "RUNNING" | "PAUSED" | "DONE";
-
-/** Stages of the triage pipeline, in order, shown in the right rail. */
-export type PipelineStage =
-  | "retrieve"
-  | "classify"
-  | "risk"
-  | "decide"
-  | "generate";
-
-export type PipelineStepStatus = "pending" | "running" | "done" | "error";
-
-export interface PipelineStep {
-  stage: PipelineStage;
-  status: PipelineStepStatus;
-  /** Human-readable detail, e.g. "120ms", "LOW", "0.4s". */
-  detail?: string;
+/** One input ticket from `support_tickets.csv` (id is the 1-based row index). */
+export interface Ticket {
+  id: number;
+  issue: string;
+  subject: string;
+  company: "HackerRank" | "None" | string;
+  /** Present only for the sample set (expected-output columns), used in eval. */
+  expected?: Partial<Decision>;
 }
 
 /** A retrieved corpus article backing the decision (grounding evidence). */
-export interface RetrievedSource {
-  id: string;
+export interface Source {
+  articleId: string;
   title: string;
-  /** Fused relevance score in [0, 1]. */
+  category: ProductArea | string;
+  url?: string;
+  /** Fused relevance score (RRF); higher is more relevant. */
   score: number;
-  /** Top-level corpus category this article belongs to. */
-  category: ProductArea;
+  snippet?: string;
 }
 
-/** The agent's decision for a ticket — the five graded columns + UI signals. */
+/** The agent's decision for a ticket — the five graded columns + agent signals. */
 export interface Decision {
-  status: TicketStatus;
-  requestType: RequestType;
-  productArea: ProductArea;
+  status: Status;
+  request_type: RequestType;
+  product_area: ProductArea;
   /** User-facing answer, grounded in the corpus (free-form). */
   response: string;
   /** Concise, corpus-traceable explanation of the decision (free-form). */
   justification: string;
+  risk: Risk;
   /** Model confidence in [0, 1]; gates human review (B1). */
   confidence: number;
-  risk: RiskLevel;
-  /** Open-set hook (D8/B1): a detected new area routed to human review. */
-  suggestedProductArea?: { value: string; reason: string };
+  /** Open-set / uncertainty hook (B1): route to a human-review queue. */
+  needs_review?: boolean;
+  /** Open-set hook (D8/B1): a detected new area, never emitted as product_area. */
+  suggested_product_area?: { value: string; reason: string };
+  sources: Source[];
 }
 
-/** One support ticket plus everything the console needs to render it. */
-export interface Ticket {
-  id: number;
-  subject: string;
-  company: "HackerRank" | "None";
-  issue: string;
-  state: QueueState;
-  /** Present once the ticket has been triaged (queued/processing → undefined). */
-  decision?: Decision;
-  sources: RetrievedSource[];
-  pipeline: PipelineStep[];
-}
+/** Triage pipeline stages, in execution order. */
+export type Stage = "retrieve" | "classify" | "risk" | "decide" | "respond";
+
+/**
+ * A streaming event from the agent pipeline. Consumed by the API bridge (007) and
+ * the live UI (008). Narrow by the presence of `sources` / `tokenDelta` / `decision`
+ * (the `final` event) or fall through to the `{ status }` lifecycle event.
+ */
+export type PipelineEvent =
+  | { stage: Stage; status: "start" | "done" | "error"; ms?: number; error?: string }
+  | { stage: "retrieve"; sources: Source[] }
+  | { stage: "respond"; tokenDelta: string }
+  | { stage: "final"; decision: Decision };

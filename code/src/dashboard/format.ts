@@ -1,4 +1,4 @@
-import type { QueueState } from "../agent/types";
+import type { QueueState } from "./viewModel";
 
 /** Visual tone used to pick colors for a badge (mapped to classes in the UI). */
 export type BadgeTone = "success" | "warn" | "muted" | "active" | "idle";

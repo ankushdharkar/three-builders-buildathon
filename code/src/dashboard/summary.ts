@@ -1,4 +1,4 @@
-import type { QueueState, RunState, Ticket } from "../agent/types";
+import type { QueueState, RunState, TicketView } from "./viewModel";
 
 /** Header-bar tallies derived from the current queue. */
 export interface QueueSummary {
@@ -21,7 +21,7 @@ const RESOLVED: ReadonlySet<QueueState> = new Set(["replied", "escalated", "inva
  * tickets always yield the same summary, so it's trivially testable and the UI can
  * recompute it on every render without side effects.
  */
-export function summarize(tickets: ReadonlyArray<Ticket>): QueueSummary {
+export function summarize(tickets: ReadonlyArray<TicketView>): QueueSummary {
   const count = (state: QueueState) => tickets.filter((t) => t.state === state).length;
 
   const replied = count("replied");

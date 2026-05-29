@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { summarize } from "./summary";
-import type { Ticket } from "../agent/types";
+import type { TicketView } from "./viewModel";
 
 /** Minimal ticket factory — only the fields `summarize` reads. */
-function ticket(id: number, state: Ticket["state"]): Ticket {
+function ticket(id: number, state: TicketView["state"]): TicketView {
   return { id, subject: `s${id}`, company: "HackerRank", issue: "", state, sources: [], pipeline: [] };
 }
 

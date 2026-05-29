@@ -4,13 +4,8 @@ import { useState } from "react";
 import type { BadgeTone } from "./format";
 import { confidenceBars, statusBadge } from "./format";
 import { summarize } from "./summary";
-import type {
-  Decision,
-  PipelineStep,
-  RetrievedSource,
-  RiskLevel,
-  Ticket,
-} from "../agent/types";
+import type { Decision, Risk, Source } from "../agent/types";
+import type { PipelineStep, TicketView } from "./viewModel";
 
 /**
  * The Triage Console (D1): a three-column dashboard — queue ▸ current ticket +
@@ -19,7 +14,7 @@ import type {
  * from mock data today and from the live agent later. Selection is the only local
  * state; everything else is derived.
  */
-export function Dashboard({ tickets }: { tickets: Ticket[] }) {
+export function Dashboard({ tickets }: { tickets: TicketView[] }) {
   // Default to the ticket currently being worked, else the first in the queue.
   const initial = tickets.find((t) => t.state === "processing") ?? tickets[0];
   const [selectedId, setSelectedId] = useState<number | undefined>(initial?.id);
@@ -117,7 +112,7 @@ function QueuePanel({
   selectedId,
   onSelect,
 }: {
-  tickets: Ticket[];
+  tickets: TicketView[];
   selectedId?: number;
   onSelect: (id: number) => void;
 }) {
@@ -155,7 +150,7 @@ function QueuePanel({
 
 /* ── Center: Current ticket ──────────────────────────────────────────────── */
 
-function CurrentTicketPanel({ ticket }: { ticket?: Ticket }) {
+function CurrentTicketPanel({ ticket }: { ticket?: TicketView }) {
   if (!ticket) {
     return (
       <section data-testid="current-ticket" className="grid min-h-0 place-items-center text-hr-muted">
@@ -190,7 +185,7 @@ function CurrentTicketPanel({ ticket }: { ticket?: Ticket }) {
   );
 }
 
-function CompanyChip({ company }: { company: Ticket["company"] }) {
+function CompanyChip({ company }: { company: TicketView["company"] }) {
   const isHR = company === "HackerRank";
   return (
     <span
@@ -203,7 +198,7 @@ function CompanyChip({ company }: { company: Ticket["company"] }) {
   );
 }
 
-const RISK_TONE: Record<RiskLevel, string> = {
+const RISK_TONE: Record<Risk, string> = {
   LOW: "text-hr-green-bright",
   MED: "text-hr-amber",
   HIGH: "text-red-400",
@@ -219,8 +214,8 @@ function DecisionCard({ decision }: { decision: Decision }) {
       <Field label="status">
         <span className="text-hr-green-bright">{decision.status}</span>
       </Field>
-      <Field label="request_type">{decision.requestType}</Field>
-      <Field label="product_area">{decision.productArea || "—"}</Field>
+      <Field label="request_type">{decision.request_type}</Field>
+      <Field label="product_area">{decision.product_area || "—"}</Field>
       <Field label="risk">
         <span className={RISK_TONE[decision.risk]}>{decision.risk}</span>
       </Field>
@@ -274,7 +269,7 @@ function ProcessingNote() {
 
 /* ── Right: Sources + Pipeline ───────────────────────────────────────────── */
 
-function SourcesPanel({ ticket }: { ticket?: Ticket }) {
+function SourcesPanel({ ticket }: { ticket?: TicketView }) {
   return (
     <aside data-testid="sources" className="flex min-h-0 flex-col border-l border-hr-border bg-panel">
       <PanelTitle>Retrieved sources</PanelTitle>
@@ -282,7 +277,7 @@ function SourcesPanel({ ticket }: { ticket?: Ticket }) {
         {ticket && ticket.sources.length > 0 ? (
           <ul className="space-y-1.5">
             {ticket.sources.map((s) => (
-              <SourceRow key={s.id} source={s} />
+              <SourceRow key={s.articleId} source={s} />
             ))}
           </ul>
         ) : (
@@ -306,7 +301,7 @@ function SourcesPanel({ ticket }: { ticket?: Ticket }) {
   );
 }
 
-function SourceRow({ source }: { source: RetrievedSource }) {
+function SourceRow({ source }: { source: Source }) {
   return (
     <li className="rounded-md border border-hr-border bg-panel-raised px-2.5 py-2">
       <div className="flex items-center gap-2 font-mono text-xs">
@@ -340,7 +335,7 @@ function PipelineRow({ step }: { step: PipelineStep }) {
 
 /* ── Footer: Justification ───────────────────────────────────────────────── */
 
-function JustificationFooter({ ticket }: { ticket?: Ticket }) {
+function JustificationFooter({ ticket }: { ticket?: TicketView }) {
   return (
     <footer
       data-testid="justification"
