@@ -8,23 +8,26 @@ const toyIndex: CorpusIndex = {
   async docs() {
     return [
       {
-        id: "screen/system-check",
+        articleId: "screen/system-check",
         title: "Run the System Check",
         category: "screen",
         body: "Run the System Check before a test to verify your browser, network, and webcam.",
+        breadcrumbs: ["HackerRank Screen", "System Check"],
         url: "https://support.hackerrank.com/screen/system-check",
       },
       {
-        id: "interviews/codepair",
+        articleId: "interviews/codepair",
         title: "CodePair Overview",
         category: "interviews",
         body: "CodePair is the live collaborative interview environment for technical interviews.",
+        breadcrumbs: ["HackerRank Interviews", "CodePair"],
       },
       {
-        id: "general-help/contact",
+        articleId: "general-help/contact",
         title: "Contacting HackerRank Support",
         category: "general-help",
         body: "How to reach HackerRank support and what to include in a ticket.",
+        breadcrumbs: ["General Help", "Contact"],
       },
     ];
   },
@@ -62,7 +65,7 @@ describe("createRetriever (hybrid BM25 + embeddings via RRF)", () => {
     expect(sources[0].articleId).toBe("screen/system-check");
   });
 
-  it("populates every Source field, mapping doc.id → articleId", async () => {
+  it("populates every Source field from the corpus doc (articleId, title, category, url)", async () => {
     const retriever = makeRetriever();
     const [top] = await retriever.retrieve("webcam system check", { k: 1 });
 

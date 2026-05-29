@@ -70,16 +70,18 @@ export function createRetriever(deps: CreateRetrieverDeps): Retriever {
         const docs = await index.docs();
         const metas = new Map<string, DocMeta>();
         const indexDocs = docs.map((d) => {
+          // 002's CorpusDoc keys articles by `articleId`; we carry it as the internal
+          // doc id so BM25/embeddings and the final Source all line up.
           const meta: DocMeta = {
-            id: d.id,
+            id: d.articleId,
             title: d.title,
             category: d.category,
             body: d.body,
             url: d.url,
           };
-          metas.set(d.id, meta);
+          metas.set(d.articleId, meta);
           // BM25 + embeddings both index `title + body` for full lexical/semantic signal.
-          return { id: d.id, text: `${d.title}\n${d.body}` };
+          return { id: d.articleId, text: `${d.title}\n${d.body}` };
         });
 
         const bm25 = buildBm25(indexDocs);
