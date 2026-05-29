@@ -7,8 +7,8 @@
  * - Embeddings: OpenRouter (OpenAI-compatible `/embeddings`), `openai/text-embedding-3-small`.
  *
  * Secrets come from env only and are never logged. Implements the `LlmClient` and
- * `Embedder` ports; the composition root (`container.ts`) picks these up via the
- * `createLlm` / `createEmbedder` factories behind the `REAL_LLM` / `REAL_EMBEDDER` flags.
+ * `Embedder` ports; the composition root (`container.ts`) wires these up via the
+ * `createLlm` / `createEmbedder` factories.
  */
 
 import OpenAI from "openai";

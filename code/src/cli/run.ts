@@ -6,8 +6,7 @@
  * tickets (001 loaders), drives the agent pipeline once per ticket, captures the final
  * `Decision`, and serializes the five graded columns in the canonical `OUTPUT_COLUMNS`
  * order (001 CSV layer). The pipeline is **injected** so tests run on a deterministic
- * fake with no API keys; `main()` resolves the real-or-fake pipeline from the
- * feature-flagged container.
+ * fake with no API keys; `main()` resolves the real pipeline from the container.
  *
  * Determinism: tickets are processed sequentially in input order and the output
  * preserves that order, so the same input + pipeline yields byte-identical CSV.

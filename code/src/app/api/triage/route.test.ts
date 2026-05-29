@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { fakeLlm, fakeRetriever } from "../../../agent/fakes";
+import { createPipeline } from "../../../agent/pipeline/run";
 import type { Pipeline } from "../../../agent/ports";
 import type { PipelineEvent, Ticket } from "../../../agent/types";
 import { POST, __pipeline } from "./route";
@@ -84,7 +86,13 @@ describe("POST /api/triage", () => {
     expect(received[received.length - 1].stage).toBe("final");
   });
 
-  it("works on the default (container) pipeline, ending with a final event", async () => {
+  it("works on the real pipeline orchestrator, ending with a final event", async () => {
+    // The container wires the real pipeline, which needs API keys/network. To exercise
+    // the route's default-provider path with no creds, inject the REAL pipeline
+    // orchestrator wired with deterministic fakes (test-only injection).
+    __pipeline.provider = async () =>
+      createPipeline({ retrieve: fakeRetriever, llm: fakeLlm });
+
     const res = await POST(jsonRequest({ ticket: TICKET }));
     expect(res.status).toBe(200);
     const received = await readLines(res);

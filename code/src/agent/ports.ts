@@ -1,12 +1,13 @@
 /**
- * Module interfaces ("ports") for the agent core (D10).
+ * Module interfaces ("ports") for the agent core.
  *
  * Every capability the pipeline needs — corpus, embeddings, LLM, retrieval, and the
  * pipeline itself — is expressed here as an interface only. Implementations live in
  * their own units (002 corpus, 003 retrieval, 004 llm/embedder, 005 pipeline) and are
- * wired in by the composition root (`container.ts`) behind feature flags. Building
- * against these ports — and the fakes in `fakes.ts` — is what lets 002–008 develop in
- * parallel without importing each other's real modules.
+ * wired in by the composition root (`container.ts`), which always provides the real
+ * implementations. Building against these ports — and the test-only fakes in
+ * `fakes.ts` — is what lets 002–008 develop in parallel without importing each
+ * other's real modules.
  *
  * Each real unit exposes a `create*` factory the container dynamic-imports:
  *   002 → createCorpusIndex()                  : CorpusIndex

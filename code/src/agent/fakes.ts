@@ -1,10 +1,10 @@
 /**
- * Deterministic fakes for every port (D10).
+ * Deterministic fakes for every port — a TEST-ONLY utility that tests inject directly.
  *
- * These let the whole app run end-to-end with no network and no real modules: the
- * composition root returns them by default, and every parallel unit uses them to stand
- * in for ports it consumes but doesn't own. Everything here is deterministic (no
- * randomness, no `Date.now`) so tests are stable.
+ * These let tests exercise the whole app end-to-end with no network and no real
+ * modules: tests inject them in place of the ports under test, and every parallel unit
+ * uses them to stand in for ports it consumes but doesn't own. Everything here is
+ * deterministic (no randomness, no `Date.now`) so tests are stable.
  */
 
 import { mockPipelineEvents } from "./mock";
@@ -113,7 +113,7 @@ export const fakePipeline: Pipeline = {
   },
 };
 
-/** Bundle of every fake, consumed by the composition root and by parallel units. */
+/** Bundle of every fake, injected by tests and used by parallel units. */
 export const fakes = {
   embedder: fakeEmbedder,
   llm: fakeLlm,

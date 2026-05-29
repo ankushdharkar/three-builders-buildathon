@@ -38,20 +38,20 @@ cp ../.env.example .env   # creates code/.env; fill in keys (not needed for UI-o
 Secrets are read from **environment variables only** — never hardcoded; `.env` is
 gitignored. Put real keys in **`code/.env`** — both the UI (`pnpm dev`, Next.js loads it
 automatically) and the CLI (`pnpm agent:run` / `agent:eval`, which pass
-`--env-file-if-exists=.env` to `tsx`) read it from there. With no `.env`, everything
-runs on fakes.
+`--env-file-if-exists=.env` to `tsx`) read it from there. The app always wires its real
+implementations; there are no flags to set — just provide the API keys.
 
-### Using OpenRouter for chat
+### API keys
 
 ```bash
 # code/.env
-OPENROUTER_API_KEY=sk-or-...   # chat; base URL is openrouter.ai/api/v1
+OPENROUTER_API_KEY=sk-or-...   # chat + embeddings; base URL is openrouter.ai/api/v1
 CHAT_MODEL=openai/gpt-4o       # optional; must support json_schema via OpenRouter
-REAL_LLM=1                     # flip the flag so the container uses the real client
 ```
 
-Embeddings use `OPENAI_API_KEY` (`REAL_EMBEDDER`); retrieval falls back to a fake
-embedder when that flag is off, so OpenRouter chat works without an OpenAI key.
+Both chat and embeddings go through OpenRouter on the single `OPENROUTER_API_KEY` —
+embeddings use OpenRouter's OpenAI-compatible `/embeddings` endpoint
+(`openai/text-embedding-3-small`), so no separate OpenAI key is needed.
 
 ## Commands
 

@@ -2,11 +2,10 @@
  * Hybrid retriever (D5, prompt 003): BM25 (lexical) + embedding cosine (semantic),
  * fused with Reciprocal Rank Fusion, returning top-k grounded `Source[]`.
  *
- * Implements the `Retriever` port. The composition root dynamic-imports this behind
- * `REAL_RETRIEVAL` and calls `createRetriever({ index, embedder })`. The corpus (002)
- * and embedder (004) arrive as PORTS — real or fake — so this module never imports
- * those units directly and is unit-tested fully offline with the fakes in
- * `src/agent/fakes.ts`.
+ * Implements the `Retriever` port. The composition root dynamic-imports this and calls
+ * `createRetriever({ index, embedder })`. The corpus (002) and embedder (004) arrive as
+ * PORTS, so this module never imports those units directly and is unit-tested fully
+ * offline with the test-only fakes in `src/agent/fakes.ts`.
  *
  * Pipeline: load docs once → build BM25 + an embedding store (vectors cached to
  * `data/index/embeddings.json`) → per query, rank by each and fuse with RRF → map the

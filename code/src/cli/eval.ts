@@ -12,8 +12,8 @@
  *    correctness, so we report **non-empty coverage** only; semantic quality is left to
  *    the AI Judge (CLAUDE.md §5).
  *
- * `evaluate` is a pure function; `main` wires it to the real-or-fake pipeline from the
- * container and the sample loader, so `pnpm agent:eval` runs end-to-end on fakes.
+ * `evaluate` is a pure function; `main` wires it to the real pipeline from the container
+ * and the sample loader, so `pnpm agent:eval` runs the agent end-to-end.
  *
  * Usage: `pnpm agent:eval [--limit N]`
  */

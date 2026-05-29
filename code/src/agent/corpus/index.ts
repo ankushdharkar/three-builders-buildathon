@@ -5,8 +5,8 @@
  * The cache (`data/index/corpus.json`, gitignored) lets retrieval (003) and the CLI
  * read the corpus without re-walking the filesystem each run. Building is idempotent —
  * `loadCorpus` is deterministic and the JSON is written stably — so the cache is
- * reproducible. Wired into the app behind the `REAL_CORPUS` flag (001b's container);
- * this module never edits the container.
+ * reproducible. Wired into the app by the composition root (001b's container); this
+ * module never edits the container.
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";

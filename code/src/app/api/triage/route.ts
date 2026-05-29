@@ -14,9 +14,9 @@
  *   Headers:  Cache-Control: no-cache, no-transform  (+ X-Accel-Buffering: no) so
  *             proxies don't buffer the token stream.
  *
- * The pipeline comes from the composition root (`getPipeline`) — fake by default, real
- * when `REAL_PIPELINE` is on (D10). It's exposed via `__pipeline.provider` so tests can
- * inject a scripted pipeline without touching the container.
+ * The pipeline comes from the composition root (`getPipeline`), which always wires the
+ * real pipeline. It's exposed via `__pipeline.provider` so tests can inject a scripted
+ * pipeline without touching the container.
  */
 
 import { getPipeline } from "../../../agent/container";
