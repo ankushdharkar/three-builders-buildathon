@@ -16,7 +16,7 @@
  *   005 → createPipeline({ retrieve, llm })    : Pipeline
  */
 
-import type { Decision, PipelineEvent, Source, Ticket } from "./types";
+import type { Decision, PipelineEvent, ProductArea, Source, Ticket } from "./types";
 
 /** A chat message in the provider-neutral shape the LLM client accepts. */
 export interface ChatMessage {
@@ -32,12 +32,16 @@ export interface ChatOpts {
   maxTokens?: number;
 }
 
-/** One corpus article loaded from `data/hackerrank/` (002 produces these). */
+/**
+ * One corpus article loaded from `data/hackerrank/` (002 produces these). `articleId`
+ * matches `Source.articleId` so retrieval (003) can map a doc straight to a `Source`.
+ */
 export interface CorpusDoc {
-  id: string;
+  articleId: string;
   title: string;
-  category: string;
+  category: ProductArea | string;
   body: string;
+  breadcrumbs: string[];
   url?: string;
 }
 

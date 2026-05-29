@@ -43,18 +43,27 @@ describe("container — default (no flags) returns fakes", () => {
 });
 
 describe("container — flag on but real module absent falls back to fake", () => {
-  it("does not throw when REAL_* points at an unbuilt module", async () => {
+  it("does not throw for modules not built yet (llm/embedder/retrieval/pipeline)", async () => {
     process.env.REAL_LLM = "1";
     process.env.REAL_EMBEDDER = "1";
-    process.env.REAL_CORPUS = "1";
     process.env.REAL_RETRIEVAL = "1";
     process.env.REAL_PIPELINE = "1";
-    // None of ./llm/client, ./corpus/index, ./retrieval/retrieve, ./pipeline/run
-    // exist yet — the container must try/catch and return the fakes.
+    // ./llm/client, ./retrieval/retrieve, ./pipeline/run don't exist yet —
+    // the container must try/catch and return the fakes.
     expect(await getLlm()).toBe(fakes.llm);
     expect(await getEmbedder()).toBe(fakes.embedder);
-    expect(await getCorpus()).toBe(fakes.corpus);
     expect(await getRetriever()).toBe(fakes.retriever);
     expect(await getPipeline()).toBe(fakes.pipeline);
+  });
+});
+
+describe("container — real module present is used (REAL_CORPUS, landed by 002)", () => {
+  it("returns the real CorpusIndex (not the fake) when REAL_CORPUS is on", async () => {
+    process.env.REAL_CORPUS = "1";
+    const corpus = await getCorpus();
+    // ./corpus/index now exists → real impl, not the fake. (docs() not called here
+    // to avoid building the on-disk index during a unit test.)
+    expect(corpus).not.toBe(fakes.corpus);
+    expect(typeof corpus.docs).toBe("function");
   });
 });

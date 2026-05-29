@@ -24,12 +24,13 @@ describe("fakeRetriever", () => {
 });
 
 describe("fakeCorpus", () => {
-  it("returns at least one CorpusDoc with id/title/body", async () => {
+  it("returns at least one CorpusDoc with articleId/title/body/breadcrumbs", async () => {
     const docs = await fakeCorpus.docs();
     expect(docs.length).toBeGreaterThanOrEqual(1);
-    expect(docs[0]).toHaveProperty("id");
+    expect(docs[0]).toHaveProperty("articleId");
     expect(docs[0]).toHaveProperty("title");
     expect(docs[0]).toHaveProperty("body");
+    expect(Array.isArray(docs[0].breadcrumbs)).toBe(true);
   });
 });
 

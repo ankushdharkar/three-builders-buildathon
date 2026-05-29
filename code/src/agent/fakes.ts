@@ -39,22 +39,25 @@ export const fakeEmbedder: Embedder = {
 /** A small canned corpus the fakes draw on, grounded in D8 categories. */
 const FAKE_DOCS: CorpusDoc[] = [
   {
-    id: "screen/system-check",
+    articleId: "screen/system-check",
     title: "Run the HackerRank System Check",
     category: "screen",
     body: "Run the System Check before a test to verify browser, network, and webcam.",
+    breadcrumbs: ["Screen"],
   },
   {
-    id: "interviews/codepair-overview",
+    articleId: "interviews/codepair-overview",
     title: "CodePair Overview",
     category: "interviews",
     body: "CodePair is the live collaborative interview environment.",
+    breadcrumbs: ["Interviews"],
   },
   {
-    id: "general-help/contact-support",
+    articleId: "general-help/contact-support",
     title: "Contacting HackerRank Support",
     category: "general-help",
     body: "How to reach HackerRank support and what to include in a ticket.",
+    breadcrumbs: ["General Help"],
   },
 ];
 
@@ -65,7 +68,7 @@ export const fakeCorpus: CorpusIndex = {
 };
 
 const FAKE_SOURCES: Source[] = FAKE_DOCS.map((d, i) => ({
-  articleId: d.id,
+  articleId: d.articleId,
   title: d.title,
   category: d.category,
   score: Number((0.9 - i * 0.1).toFixed(2)),
