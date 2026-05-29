@@ -133,8 +133,8 @@ describe("createLlm — chat (OpenRouter)", () => {
   });
 });
 
-describe("createEmbedder — embeddings (OpenAI)", () => {
-  it("uses text-embedding-3-small on the default OpenAI baseURL and returns one vector per input", async () => {
+describe("createEmbedder — embeddings (OpenRouter)", () => {
+  it("uses openai/text-embedding-3-small on the OpenRouter baseURL and returns one vector per input", async () => {
     embeddingsCreate.mockResolvedValue({
       data: [{ embedding: [0.1, 0.2] }, { embedding: [0.3, 0.4] }],
     });
@@ -145,10 +145,10 @@ describe("createEmbedder — embeddings (OpenAI)", () => {
       [0.1, 0.2],
       [0.3, 0.4],
     ]);
-    expect(ctorCalls[0].apiKey).toBe("sk-oai-test-key");
-    expect(ctorCalls[0].baseURL).toBeUndefined();
+    expect(ctorCalls[0].apiKey).toBe("sk-or-test-key");
+    expect(ctorCalls[0].baseURL).toBe("https://openrouter.ai/api/v1");
     expect(embeddingsCreate.mock.calls[0][0].model).toBe(EMBEDDING_MODEL);
-    expect(EMBEDDING_MODEL).toBe("text-embedding-3-small");
+    expect(EMBEDDING_MODEL).toBe("openai/text-embedding-3-small");
   });
 
   it("returns [] for empty input without calling the API", async () => {
@@ -157,15 +157,15 @@ describe("createEmbedder — embeddings (OpenAI)", () => {
     expect(embeddingsCreate).not.toHaveBeenCalled();
   });
 
-  it("throws a clear error (no key leak) when OPENAI_API_KEY is missing", () => {
-    delete process.env.OPENAI_API_KEY;
+  it("throws a clear error (no key leak) when OPENROUTER_API_KEY is missing", () => {
+    delete process.env.OPENROUTER_API_KEY;
     try {
       createEmbedder();
       throw new Error("should have thrown");
     } catch (e) {
       const msg = (e as Error).message;
-      expect(msg).toMatch(/OPENAI_API_KEY/);
-      expect(msg).not.toContain("sk-oai-test-key");
+      expect(msg).toMatch(/OPENROUTER_API_KEY/);
+      expect(msg).not.toContain("sk-or-test-key");
     }
   });
 });

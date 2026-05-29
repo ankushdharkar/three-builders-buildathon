@@ -4,7 +4,7 @@
  * - Chat: OpenRouter via the OpenAI SDK (`baseURL` swapped), with structured-JSON
  *   (`response_format: json_schema`) validated by the caller's zod schema + one retry,
  *   and a token-streaming mode. Always temperature 0 + fixed seed (D6 determinism).
- * - Embeddings: OpenAI (default baseURL), `text-embedding-3-small`.
+ * - Embeddings: OpenRouter (OpenAI-compatible `/embeddings`), `openai/text-embedding-3-small`.
  *
  * Secrets come from env only and are never logged. Implements the `LlmClient` and
  * `Embedder` ports; the composition root (`container.ts`) picks these up via the
@@ -105,16 +105,13 @@ export function createLlm(opts?: LlmOptions): LlmClient {
 }
 
 /**
- * Real embedder backed by OpenAI (`text-embedding-3-small`). Returns one vector per
- * input, preserving order.
- *
- * TODO(post-sprint): real OpenAI embeddings (D5 hybrid) — this factory is implemented
- * but `REAL_EMBEDDER` stays OFF this sprint (retrieval ships BM25-only). Validate the
- * cached-index integration, then flip the flag in feature-flags.md.
+ * Real embedder backed by OpenRouter's OpenAI-compatible embeddings endpoint
+ * (`openai/text-embedding-3-small`, 1536-dim). Uses the same `OPENROUTER_API_KEY` as
+ * chat — no separate OpenAI key. Returns one vector per input, preserving order.
  */
 export function createEmbedder(opts?: LlmOptions): Embedder {
-  const apiKey = opts?.apiKey ?? requireEnv("OPENAI_API_KEY");
-  const client = new OpenAI({ apiKey });
+  const apiKey = opts?.apiKey ?? requireEnv("OPENROUTER_API_KEY");
+  const client = new OpenAI({ apiKey, baseURL: OPENROUTER_BASE_URL });
   const model = opts?.model ?? EMBEDDING_MODEL;
 
   return {

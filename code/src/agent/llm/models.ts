@@ -16,5 +16,5 @@ export const SEED = 7;
  */
 export const CHAT_MODEL = "openai/gpt-4o";
 
-/** Embedding model (OpenAI, default baseURL). Pinned per D5. */
-export const EMBEDDING_MODEL = "text-embedding-3-small";
+/** Embedding model — OpenRouter OpenAI-compatible id (1536-dim). Pinned per D5. */
+export const EMBEDDING_MODEL = "openai/text-embedding-3-small";
