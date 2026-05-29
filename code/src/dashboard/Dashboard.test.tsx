@@ -59,6 +59,16 @@ describe("<Dashboard />", () => {
     expect(card).toHaveTextContent("risk");
   });
 
+  it("lets a long product_area value wrap instead of overflowing into RISK", () => {
+    render(<Dashboard tickets={MOCK_TICKETS} />);
+    fireEvent.click(screen.getByRole("button", { name: /Ticket #1:/ }));
+    const value = screen.getByTestId("field-product_area");
+    // overflow-wrap so a long space-less token (e.g. conversation_management)
+    // breaks within its grid cell, and min-w-0 so the cell can shrink below it.
+    expect(value.className).toContain("break-words");
+    expect(value.parentElement?.className).toContain("min-w-0");
+  });
+
   it("surfaces detected sub-requests for a bundled ticket (D12)", () => {
     render(<Dashboard tickets={MOCK_TICKETS} />);
     fireEvent.click(screen.getByRole("button", { name: /Ticket #2/ }));
