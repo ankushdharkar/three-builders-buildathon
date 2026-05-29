@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createEmbedStore, type EmbedDoc } from "./embedStore";
+import { cosine, createEmbedStore, type EmbedDoc } from "./embedStore";
 
 const DOCS: EmbedDoc[] = [
   { id: "a", text: "fresh apple pie recipe" },
@@ -147,5 +147,38 @@ describe("createEmbedStore", () => {
     const top = await store.search("cherry", 1);
     expect(top[0].id).toBe("c");
     await expect(fs.access(cachePath)).rejects.toThrow();
+  });
+
+  it("surfaces an actionable error instead of silently scoring a stale-dimension cache", async () => {
+    // Poison the cache: doc "a" was embedded by an old model at a different dimension.
+    await fs.mkdir(cacheDir, { recursive: true });
+    await fs.writeFile(
+      cachePath,
+      JSON.stringify({ "test-model:a": [1, 2, 3, 4, 5] }),
+      "utf8",
+    );
+    const store = createEmbedStore({
+      docs: DOCS,
+      embed: fakeEmbed, // returns 3-dim vectors; query is 3-dim, cached "a" is 5-dim
+      modelId: "test-model",
+      cachePath,
+    });
+    await expect(store.search("apple", 1)).rejects.toThrow(/dimension mismatch/i);
+  });
+});
+
+describe("cosine", () => {
+  it("scores identical vectors at 1 and orthogonal at 0", () => {
+    expect(cosine([1, 0, 0], [1, 0, 0])).toBeCloseTo(1, 10);
+    expect(cosine([1, 0, 0], [0, 1, 0])).toBeCloseTo(0, 10);
+  });
+
+  it("returns 0 for an empty (missing) vector rather than throwing", () => {
+    expect(cosine([1, 2, 3], [])).toBe(0);
+    expect(cosine([], [1, 2, 3])).toBe(0);
+  });
+
+  it("throws an actionable error on a genuine dimension mismatch", () => {
+    expect(() => cosine([1, 2, 3], [1, 2, 3, 4])).toThrow(/dimension mismatch/i);
   });
 });

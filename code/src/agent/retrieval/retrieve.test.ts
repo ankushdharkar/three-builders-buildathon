@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { CorpusIndex, Embedder } from "../ports";
-import { createRetriever } from "./retrieve";
+import { EMBEDDING_MODEL } from "../llm/models";
+import { createRetriever, DEFAULT_EMBED_MODEL } from "./retrieve";
 
 const toyIndex: CorpusIndex = {
   async docs() {
@@ -101,5 +102,13 @@ describe("createRetriever (hybrid BM25 + embeddings via RRF)", () => {
     const sources = await retriever.retrieve("system check webcam");
     const scores = sources.map((s) => s.score);
     expect([...scores].sort((x, y) => y - x)).toEqual(scores);
+  });
+});
+
+describe("embedding cache key", () => {
+  it("defaults the cache-key model id to the real EMBEDDING_MODEL (single source)", () => {
+    // Guards against the cache key drifting from the actual model: a true model swap
+    // must change the key so stale vectors are re-embedded, not silently reused.
+    expect(DEFAULT_EMBED_MODEL).toBe(EMBEDDING_MODEL);
   });
 });

@@ -46,12 +46,25 @@ type CacheShape = Record<string, number[]>;
 
 const DEFAULT_CACHE_REL = "data/index/embeddings.json";
 
-function cosine(a: number[], b: number[]): number {
+/**
+ * Cosine similarity of two equal-length vectors. An empty vector (the "missing doc
+ * vector" sentinel) scores 0. A genuine length mismatch between two non-empty vectors
+ * means the cached vectors are stale (e.g. the embedding model/dimension changed) — we
+ * throw an actionable error rather than silently truncating to the shorter length and
+ * returning a meaningless score.
+ */
+export function cosine(a: number[], b: number[]): number {
+  if (a.length === 0 || b.length === 0) return 0;
+  if (a.length !== b.length) {
+    throw new Error(
+      `Embedding dimension mismatch (${a.length} vs ${b.length}). The cached vectors ` +
+        `look stale — delete data/index/embeddings.json and retry.`,
+    );
+  }
   let dot = 0;
   let na = 0;
   let nb = 0;
-  const n = Math.min(a.length, b.length);
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     na += a[i] * a[i];
     nb += b[i] * b[i];

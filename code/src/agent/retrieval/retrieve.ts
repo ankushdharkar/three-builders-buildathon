@@ -15,12 +15,17 @@
 import type { CorpusIndex, Embedder, Retriever } from "../ports";
 import type { Source } from "../types";
 
+import { EMBEDDING_MODEL } from "../llm/models";
 import { buildBm25, tokenize, type Bm25Index } from "./bm25";
 import { createEmbedStore, type EmbedStore } from "./embedStore";
 import { rrf } from "./rrf";
 
-/** Default embedding model id (D6: OpenAI text-embedding-3-small); part of the cache key. */
-export const DEFAULT_EMBED_MODEL = "text-embedding-3-small";
+/**
+ * Embedding model id used in the on-disk vector cache key. Single-sourced from
+ * `llm/models` so the key always tracks the real model — a genuine model swap changes
+ * the key and re-embeds, never silently reusing stale vectors of the wrong model/dim.
+ */
+export const DEFAULT_EMBED_MODEL = EMBEDDING_MODEL;
 
 /** RRF constant (Cormack et al.). */
 const RRF_K = 60;
