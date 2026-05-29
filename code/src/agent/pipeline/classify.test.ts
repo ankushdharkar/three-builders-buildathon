@@ -75,6 +75,17 @@ describe("classify", () => {
     expect(c.refusal).toBe("injection");
   });
 
+  it("does NOT refuse 'delete my account' as injection — it's an actionable product_issue", async () => {
+    const c = await classify(
+      ticket("I signed up with Google login and have no password. Please delete my account."),
+      [source("community")],
+      stubLlm({ request_type: "product_issue", product_area: "community", confidence: 0.8 }),
+    );
+    expect(c.refusal).toBeUndefined();
+    expect(c.request_type).toBe("product_issue");
+    expect(c.product_area).toBe("community");
+  });
+
   it("never emits an out-of-set area: falls back to blank + suggested_product_area", async () => {
     const c = await classify(
       ticket("My invoice has the wrong amount"),

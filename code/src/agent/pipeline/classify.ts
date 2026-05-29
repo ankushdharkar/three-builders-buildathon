@@ -42,7 +42,9 @@ const OUT_OF_SET_CONFIDENCE = 0.4;
 const INJECTION_PATTERNS: RegExp[] = [
   /\b(ignore|disregard|forget)\b[\s\S]{0,40}\b(previous|above|prior|earlier|all)\b[\s\S]{0,30}\b(instructions?|prompts?|rules?|context)\b/i,
   /\b(you are now|new instructions?\s*:|system\s*prompt|override (your|the)|act as)\b/i,
-  /\bdelete\b[\s\S]{0,20}\b(all|everything|files?|database|data|account)\b/i,
+  // Destructive system commands only — NOT "delete my account" (a legitimate, documented
+  // self-service support request handled as a normal product_issue, not an attack).
+  /\bdelete\b[\s\S]{0,20}\b(all|everything|files?|database|data)\b/i,
   /\b(drop\s+table|rm\s+-rf|sudo\s+rm)\b/i,
   /^\s*(system|assistant|developer)\s*:/im,
 ];

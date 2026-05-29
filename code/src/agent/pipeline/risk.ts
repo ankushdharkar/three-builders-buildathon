@@ -31,11 +31,6 @@ const HIGH_RULES: Rule[] = [
   },
   { signal: "score-dispute", band: "HIGH", test: /\b(increase|raise|change|fix|boost|adjust|dispute)\b[\s\S]{0,30}\b(score|rating|rank|result)\b|\b(score|result)\b[\s\S]{0,20}\bunfair\b|\bgraded?\b[\s\S]{0,20}\bunfair/i },
   {
-    signal: "account-deletion",
-    band: "HIGH",
-    test: /\b(delete|close|deactivate|remove|wipe)\b[\s\S]{0,20}\b(my )?(account|profile|data)\b/i,
-  },
-  {
     // Site-wide outage language only — a single page/test failing to load is an ordinary
     // product issue, so we require platform/site-level wording or total inaccessibility,
     // not "a page won't load".
@@ -55,6 +50,14 @@ const PII_RULES: Rule[] = [
 
 /** MED-risk rules: sensitive-but-not-critical (login/access, privacy, escalated tone). */
 const MED_RULES: Rule[] = [
+  // Deleting/closing your OWN account is sensitive + irreversible, but it's documented
+  // self-service in the corpus — so flag it (MED, surfaced in the safety badge) but reply
+  // with the grounded steps rather than auto-escalating (matches the sample's ground truth).
+  {
+    signal: "account-deletion",
+    band: "MED",
+    test: /\b(delete|close|deactivate|remove|wipe)\b[\s\S]{0,20}\b(my )?(account|profile|data)\b/i,
+  },
   { signal: "access", band: "MED", test: /\b(locked out|can('|no)?t log ?in|access denied|reset (my )?password|2fa|mfa)\b/i },
   { signal: "privacy", band: "MED", test: /\b(gdpr|privacy|personal data|data request|right to be forgotten)\b/i },
   { signal: "urgent", band: "MED", test: /\b(urgent|asap|immediately|deadline today|interview (today|in an hour|starting))\b/i },

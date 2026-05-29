@@ -24,8 +24,10 @@ describe("assessRisk", () => {
     expect(a.signals.join(" ")).toMatch(/pii|secret|payment|billing/i);
   });
 
-  it("flags account deletion as elevated risk", () => {
-    expect(assessRisk(ticket("Please delete my account permanently")).risk).not.toBe("LOW");
+  it("flags deleting your own account as MED (sensitive but documented self-service; not auto-escalated)", () => {
+    const a = assessRisk(ticket("Please delete my account permanently"));
+    expect(a.risk).toBe("MED");
+    expect(a.signals).toContain("account-deletion");
   });
 
   it("flags score-dispute tickets as HIGH", () => {
